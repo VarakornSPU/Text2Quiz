@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+spacy>=3.8.0
+torch
+scikit-learn
+pandas
+openpyxl
+joblib
+wordfreq
+lemminflect
+

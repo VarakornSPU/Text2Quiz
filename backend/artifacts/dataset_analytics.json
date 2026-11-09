@@ -1,0 +1,1739 @@
+{
+  "overview": {
+    "total_sentences": 12825,
+    "total_articles": 1494,
+    "total_lexicon_words": 9935,
+    "sentence_counts": {
+      "A1": 305,
+      "A2": 1944,
+      "B1": 3928,
+      "B2": 4226,
+      "C1": 2121,
+      "C2": 301
+    },
+    "article_counts": {
+      "A1": 288,
+      "A2": 272,
+      "B1": 205,
+      "B2": 286,
+      "C1": 241,
+      "C2": 202
+    },
+    "word_counts": {
+      "A1": 1164,
+      "A2": 1411,
+      "B1": 2446,
+      "B2": 2778,
+      "C1": 1111,
+      "C2": 1025
+    },
+    "source_counts": {
+      "Wikiauto": 7453,
+      "ReadMe": 2821,
+      "SCoRE": 2551
+    },
+    "article_avg_words": {
+      "A1": 95.0,
+      "A2": 227.7,
+      "B1": 409.6,
+      "B2": 498.6,
+      "C1": 683.7,
+      "C2": 689.0
+    }
+  },
+  "pos_distribution": [
+    {
+      "level": "A1",
+      "NOUN": 20.5,
+      "VERB": 14.7,
+      "ADJ": 5.4,
+      "ADV": 4.0,
+      "PRON": 13.0,
+      "ADP": 14.6,
+      "AUX": 6.1,
+      "CCONJ": 1.6,
+      "SCONJ": 0.9
+    },
+    {
+      "level": "A2",
+      "NOUN": 19.7,
+      "VERB": 14.4,
+      "ADJ": 7.6,
+      "ADV": 3.6,
+      "PRON": 13.1,
+      "ADP": 11.3,
+      "AUX": 7.8,
+      "CCONJ": 1.4,
+      "SCONJ": 2.0
+    },
+    {
+      "level": "B1",
+      "NOUN": 25.2,
+      "VERB": 12.3,
+      "ADJ": 8.2,
+      "ADV": 4.0,
+      "PRON": 7.6,
+      "ADP": 13.2,
+      "AUX": 6.4,
+      "CCONJ": 2.2,
+      "SCONJ": 1.3
+    },
+    {
+      "level": "B2",
+      "NOUN": 26.1,
+      "VERB": 11.6,
+      "ADJ": 11.0,
+      "ADV": 4.1,
+      "PRON": 4.5,
+      "ADP": 13.0,
+      "AUX": 6.7,
+      "CCONJ": 3.7,
+      "SCONJ": 1.6
+    },
+    {
+      "level": "C1",
+      "NOUN": 28.6,
+      "VERB": 10.5,
+      "ADJ": 11.4,
+      "ADV": 4.1,
+      "PRON": 3.7,
+      "ADP": 14.0,
+      "AUX": 5.9,
+      "CCONJ": 4.1,
+      "SCONJ": 1.4
+    },
+    {
+      "level": "C2",
+      "NOUN": 28.7,
+      "VERB": 10.3,
+      "ADJ": 11.3,
+      "ADV": 3.8,
+      "PRON": 4.3,
+      "ADP": 13.8,
+      "AUX": 5.5,
+      "CCONJ": 4.1,
+      "SCONJ": 1.5
+    }
+  ],
+  "tense_distribution": [
+    {
+      "level": "A1",
+      "Present simple": 34.3,
+      "Past simple": 24.1,
+      "Present continuous": 3.7,
+      "Present perfect": 0.9,
+      "Future (will)": 1.4,
+      "Past continuous": 0.0,
+      "Past perfect": 0.0,
+      "Present simple passive": 0.0,
+      "Present perfect continuous": 0.0,
+      "Modal": 1.9
+    },
+    {
+      "level": "A2",
+      "Present simple": 33.8,
+      "Past simple": 22.7,
+      "Present continuous": 0.9,
+      "Present perfect": 3.5,
+      "Future (will)": 1.9,
+      "Past continuous": 0.3,
+      "Past perfect": 0.0,
+      "Present simple passive": 2.5,
+      "Present perfect continuous": 0.3,
+      "Modal": 1.9
+    },
+    {
+      "level": "B1",
+      "Present simple": 27.9,
+      "Past simple": 27.1,
+      "Present continuous": 0.5,
+      "Present perfect": 1.8,
+      "Future (will)": 1.1,
+      "Past continuous": 0.5,
+      "Past perfect": 0.3,
+      "Present simple passive": 4.5,
+      "Present perfect continuous": 0.0,
+      "Modal": 1.1
+    },
+    {
+      "level": "B2",
+      "Present simple": 25.7,
+      "Past simple": 12.6,
+      "Present continuous": 0.4,
+      "Present perfect": 1.8,
+      "Future (will)": 1.1,
+      "Past continuous": 0.4,
+      "Past perfect": 0.4,
+      "Present simple passive": 8.9,
+      "Present perfect continuous": 0.0,
+      "Modal": 1.1
+    },
+    {
+      "level": "C1",
+      "Present simple": 36.4,
+      "Past simple": 9.5,
+      "Present continuous": 0.0,
+      "Present perfect": 1.4,
+      "Future (will)": 0.4,
+      "Past continuous": 0.2,
+      "Past perfect": 0.4,
+      "Present simple passive": 7.6,
+      "Present perfect continuous": 0.0,
+      "Modal": 0.8
+    },
+    {
+      "level": "C2",
+      "Present simple": 36.7,
+      "Past simple": 8.0,
+      "Present continuous": 0.2,
+      "Present perfect": 1.4,
+      "Future (will)": 0.5,
+      "Past continuous": 0.2,
+      "Past perfect": 0.0,
+      "Present simple passive": 7.3,
+      "Present perfect continuous": 0.0,
+      "Modal": 0.7
+    }
+  ],
+  "complexity_metrics": [
+    {
+      "level": "A1",
+      "avg_words": 6.0,
+      "avg_depth": 2.7,
+      "avg_clauses": 1.15,
+      "avg_ner": 0.23
+    },
+    {
+      "level": "A2",
+      "avg_words": 8.6,
+      "avg_depth": 3.4,
+      "avg_clauses": 1.55,
+      "avg_ner": 0.28
+    },
+    {
+      "level": "B1",
+      "avg_words": 12.4,
+      "avg_depth": 4.3,
+      "avg_clauses": 1.71,
+      "avg_ner": 0.41
+    },
+    {
+      "level": "B2",
+      "avg_words": 16.5,
+      "avg_depth": 5.3,
+      "avg_clauses": 1.92,
+      "avg_ner": 0.41
+    },
+    {
+      "level": "C1",
+      "avg_words": 19.0,
+      "avg_depth": 5.6,
+      "avg_clauses": 1.99,
+      "avg_ner": 0.33
+    },
+    {
+      "level": "C2",
+      "avg_words": 22.9,
+      "avg_depth": 6.3,
+      "avg_clauses": 2.35,
+      "avg_ner": 0.59
+    }
+  ],
+  "lemma_impact": {
+    "lemma_coverage_pct": 80.7,
+    "surface_coverage_pct": 59.2,
+    "oov_reduction_pct": 21.5,
+    "total_analyzed_tokens": 8849
+  },
+  "ner_by_source": {
+    "ReadMe": 0.61,
+    "Wikiauto": 0.31,
+    "SCoRE": 0.19
+  },
+  "sample_sentences": {
+    "A1": [
+      {
+        "text": "Well, I'm going to pick up Luz from school.",
+        "source": "ReadMe",
+        "level": "A1",
+        "word_count": 9,
+        "clauses": 2,
+        "depth": 4,
+        "verb_forms": [
+          "Future (be going to)"
+        ],
+        "tokens": [
+          {
+            "text": "Well",
+            "pos": "INTJ",
+            "lemma": "well"
+          },
+          {
+            "text": ",",
+            "pos": "PUNCT",
+            "lemma": ","
+          },
+          {
+            "text": "I",
+            "pos": "PRON",
+            "lemma": "I"
+          },
+          {
+            "text": "'m",
+            "pos": "AUX",
+            "lemma": "be"
+          },
+          {
+            "text": "going",
+            "pos": "VERB",
+            "lemma": "go"
+          },
+          {
+            "text": "to",
+            "pos": "PART",
+            "lemma": "to"
+          },
+          {
+            "text": "pick",
+            "pos": "VERB",
+            "lemma": "pick"
+          },
+          {
+            "text": "up",
+            "pos": "ADP",
+            "lemma": "up"
+          },
+          {
+            "text": "Luz",
+            "pos": "PROPN",
+            "lemma": "Luz"
+          },
+          {
+            "text": "from",
+            "pos": "ADP",
+            "lemma": "from"
+          },
+          {
+            "text": "school",
+            "pos": "NOUN",
+            "lemma": "school"
+          },
+          {
+            "text": ".",
+            "pos": "PUNCT",
+            "lemma": "."
+          }
+        ]
+      },
+      {
+        "text": "A young girl smiling in a plastic play structure .",
+        "source": "ReadMe",
+        "level": "A1",
+        "word_count": 9,
+        "clauses": 2,
+        "depth": 5,
+        "verb_forms": [
+          "Gerund / -ing form"
+        ],
+        "tokens": [
+          {
+            "text": "A",
+            "pos": "DET",
+            "lemma": "a"
+          },
+          {
+            "text": "young",
+            "pos": "ADJ",
+            "lemma": "young"
+          },
+          {
+            "text": "girl",
+            "pos": "NOUN",
+            "lemma": "girl"
+          },
+          {
+            "text": "smiling",
+            "pos": "VERB",
+            "lemma": "smile"
+          },
+          {
+            "text": "in",
+            "pos": "ADP",
+            "lemma": "in"
+          },
+          {
+            "text": "a",
+            "pos": "DET",
+            "lemma": "a"
+          },
+          {
+            "text": "plastic",
+            "pos": "ADJ",
+            "lemma": "plastic"
+          },
+          {
+            "text": "play",
+            "pos": "NOUN",
+            "lemma": "play"
+          },
+          {
+            "text": "structure",
+            "pos": "NOUN",
+            "lemma": "structure"
+          },
+          {
+            "text": ".",
+            "pos": "PUNCT",
+            "lemma": "."
+          }
+        ]
+      },
+      {
+        "text": "I am trying to help you.",
+        "source": "SCoRE",
+        "level": "A1",
+        "word_count": 6,
+        "clauses": 2,
+        "depth": 2,
+        "verb_forms": [
+          "Present continuous",
+          "To-infinitive"
+        ],
+        "tokens": [
+          {
+            "text": "I",
+            "pos": "PRON",
+            "lemma": "I"
+          },
+          {
+            "text": "am",
+            "pos": "AUX",
+            "lemma": "be"
+          },
+          {
+            "text": "trying",
+            "pos": "VERB",
+            "lemma": "try"
+          },
+          {
+            "text": "to",
+            "pos": "PART",
+            "lemma": "to"
+          },
+          {
+            "text": "help",
+            "pos": "VERB",
+            "lemma": "help"
+          },
+          {
+            "text": "you",
+            "pos": "PRON",
+            "lemma": "you"
+          },
+          {
+            "text": ".",
+            "pos": "PUNCT",
+            "lemma": "."
+          }
+        ]
+      }
+    ],
+    "A2": [
+      {
+        "text": "Make sure your hand can easily fit inside the hole so you’re able to scoop out the seeds.",
+        "source": "ReadMe",
+        "level": "A2",
+        "word_count": 18,
+        "clauses": 4,
+        "depth": 5,
+        "verb_forms": [
+          "Imperative",
+          "Modal (can)",
+          "Present simple",
+          "To-infinitive"
+        ],
+        "tokens": [
+          {
+            "text": "Make",
+            "pos": "VERB",
+            "lemma": "make"
+          },
+          {
+            "text": "sure",
+            "pos": "ADJ",
+            "lemma": "sure"
+          },
+          {
+            "text": "your",
+            "pos": "PRON",
+            "lemma": "your"
+          },
+          {
+            "text": "hand",
+            "pos": "NOUN",
+            "lemma": "hand"
+          },
+          {
+            "text": "can",
+            "pos": "AUX",
+            "lemma": "can"
+          },
+          {
+            "text": "easily",
+            "pos": "ADV",
+            "lemma": "easily"
+          },
+          {
+            "text": "fit",
+            "pos": "VERB",
+            "lemma": "fit"
+          },
+          {
+            "text": "inside",
+            "pos": "ADP",
+            "lemma": "inside"
+          },
+          {
+            "text": "the",
+            "pos": "DET",
+            "lemma": "the"
+          },
+          {
+            "text": "hole",
+            "pos": "NOUN",
+            "lemma": "hole"
+          },
+          {
+            "text": "so",
+            "pos": "SCONJ",
+            "lemma": "so"
+          },
+          {
+            "text": "you",
+            "pos": "PRON",
+            "lemma": "you"
+          },
+          {
+            "text": "’re",
+            "pos": "VERB",
+            "lemma": "’re"
+          },
+          {
+            "text": "able",
+            "pos": "ADJ",
+            "lemma": "able"
+          },
+          {
+            "text": "to",
+            "pos": "PART",
+            "lemma": "to"
+          }
+        ]
+      },
+      {
+        "text": "Carrie knew her sister was happy.",
+        "source": "SCoRE",
+        "level": "A2",
+        "word_count": 6,
+        "clauses": 2,
+        "depth": 3,
+        "verb_forms": [
+          "Past simple",
+          "Past simple"
+        ],
+        "tokens": [
+          {
+            "text": "Carrie",
+            "pos": "PROPN",
+            "lemma": "Carrie"
+          },
+          {
+            "text": "knew",
+            "pos": "VERB",
+            "lemma": "know"
+          },
+          {
+            "text": "her",
+            "pos": "PRON",
+            "lemma": "her"
+          },
+          {
+            "text": "sister",
+            "pos": "NOUN",
+            "lemma": "sister"
+          },
+          {
+            "text": "was",
+            "pos": "AUX",
+            "lemma": "be"
+          },
+          {
+            "text": "happy",
+            "pos": "ADJ",
+            "lemma": "happy"
+          },
+          {
+            "text": ".",
+            "pos": "PUNCT",
+            "lemma": "."
+          }
+        ]
+      },
+      {
+        "text": "He is a man whose career has been long and successful.",
+        "source": "SCoRE",
+        "level": "A2",
+        "word_count": 11,
+        "clauses": 2,
+        "depth": 4,
+        "verb_forms": [
+          "Present simple",
+          "Present perfect"
+        ],
+        "tokens": [
+          {
+            "text": "He",
+            "pos": "PRON",
+            "lemma": "he"
+          },
+          {
+            "text": "is",
+            "pos": "AUX",
+            "lemma": "be"
+          },
+          {
+            "text": "a",
+            "pos": "DET",
+            "lemma": "a"
+          },
+          {
+            "text": "man",
+            "pos": "NOUN",
+            "lemma": "man"
+          },
+          {
+            "text": "whose",
+            "pos": "DET",
+            "lemma": "whose"
+          },
+          {
+            "text": "career",
+            "pos": "NOUN",
+            "lemma": "career"
+          },
+          {
+            "text": "has",
+            "pos": "AUX",
+            "lemma": "have"
+          },
+          {
+            "text": "been",
+            "pos": "AUX",
+            "lemma": "be"
+          },
+          {
+            "text": "long",
+            "pos": "ADJ",
+            "lemma": "long"
+          },
+          {
+            "text": "and",
+            "pos": "CCONJ",
+            "lemma": "and"
+          },
+          {
+            "text": "successful",
+            "pos": "ADJ",
+            "lemma": "successful"
+          },
+          {
+            "text": ".",
+            "pos": "PUNCT",
+            "lemma": "."
+          }
+        ]
+      }
+    ],
+    "B1": [
+      {
+        "text": "Naming a child after a relative, friend, or well - known person is common in the English -speaking world.",
+        "source": "Wikiauto",
+        "level": "B1",
+        "word_count": 17,
+        "clauses": 2,
+        "depth": 4,
+        "verb_forms": [
+          "Gerund / -ing form",
+          "Participle clause",
+          "Present simple",
+          "Gerund / -ing form"
+        ],
+        "tokens": [
+          {
+            "text": "Naming",
+            "pos": "VERB",
+            "lemma": "name"
+          },
+          {
+            "text": "a",
+            "pos": "DET",
+            "lemma": "a"
+          },
+          {
+            "text": "child",
+            "pos": "NOUN",
+            "lemma": "child"
+          },
+          {
+            "text": "after",
+            "pos": "ADP",
+            "lemma": "after"
+          },
+          {
+            "text": "a",
+            "pos": "DET",
+            "lemma": "a"
+          },
+          {
+            "text": "relative",
+            "pos": "ADJ",
+            "lemma": "relative"
+          },
+          {
+            "text": ",",
+            "pos": "PUNCT",
+            "lemma": ","
+          },
+          {
+            "text": "friend",
+            "pos": "NOUN",
+            "lemma": "friend"
+          },
+          {
+            "text": ",",
+            "pos": "PUNCT",
+            "lemma": ","
+          },
+          {
+            "text": "or",
+            "pos": "CCONJ",
+            "lemma": "or"
+          },
+          {
+            "text": "well",
+            "pos": "ADV",
+            "lemma": "well"
+          },
+          {
+            "text": "-",
+            "pos": "PUNCT",
+            "lemma": "-"
+          },
+          {
+            "text": "known",
+            "pos": "VERB",
+            "lemma": "know"
+          },
+          {
+            "text": "person",
+            "pos": "NOUN",
+            "lemma": "person"
+          },
+          {
+            "text": "is",
+            "pos": "AUX",
+            "lemma": "be"
+          }
+        ]
+      },
+      {
+        "text": "Uber says the California DMV doesn't understand its own rules about driverless cars.",
+        "source": "ReadMe",
+        "level": "B1",
+        "word_count": 13,
+        "clauses": 2,
+        "depth": 5,
+        "verb_forms": [
+          "Present simple",
+          "Present simple"
+        ],
+        "tokens": [
+          {
+            "text": "Uber",
+            "pos": "PROPN",
+            "lemma": "Uber"
+          },
+          {
+            "text": "says",
+            "pos": "VERB",
+            "lemma": "say"
+          },
+          {
+            "text": "the",
+            "pos": "DET",
+            "lemma": "the"
+          },
+          {
+            "text": "California",
+            "pos": "PROPN",
+            "lemma": "California"
+          },
+          {
+            "text": "DMV",
+            "pos": "PROPN",
+            "lemma": "DMV"
+          },
+          {
+            "text": "does",
+            "pos": "AUX",
+            "lemma": "do"
+          },
+          {
+            "text": "n't",
+            "pos": "PART",
+            "lemma": "not"
+          },
+          {
+            "text": "understand",
+            "pos": "VERB",
+            "lemma": "understand"
+          },
+          {
+            "text": "its",
+            "pos": "PRON",
+            "lemma": "its"
+          },
+          {
+            "text": "own",
+            "pos": "ADJ",
+            "lemma": "own"
+          },
+          {
+            "text": "rules",
+            "pos": "NOUN",
+            "lemma": "rule"
+          },
+          {
+            "text": "about",
+            "pos": "ADP",
+            "lemma": "about"
+          },
+          {
+            "text": "driverless",
+            "pos": "NOUN",
+            "lemma": "driverless"
+          },
+          {
+            "text": "cars",
+            "pos": "NOUN",
+            "lemma": "car"
+          },
+          {
+            "text": ".",
+            "pos": "PUNCT",
+            "lemma": "."
+          }
+        ]
+      },
+      {
+        "text": "Although Kat dislikes James, she still came to help him move.",
+        "source": "SCoRE",
+        "level": "B1",
+        "word_count": 11,
+        "clauses": 4,
+        "depth": 3,
+        "verb_forms": [
+          "Present simple",
+          "Past simple",
+          "To-infinitive",
+          "Present simple"
+        ],
+        "tokens": [
+          {
+            "text": "Although",
+            "pos": "SCONJ",
+            "lemma": "although"
+          },
+          {
+            "text": "Kat",
+            "pos": "PROPN",
+            "lemma": "Kat"
+          },
+          {
+            "text": "dislikes",
+            "pos": "VERB",
+            "lemma": "dislike"
+          },
+          {
+            "text": "James",
+            "pos": "PROPN",
+            "lemma": "James"
+          },
+          {
+            "text": ",",
+            "pos": "PUNCT",
+            "lemma": ","
+          },
+          {
+            "text": "she",
+            "pos": "PRON",
+            "lemma": "she"
+          },
+          {
+            "text": "still",
+            "pos": "ADV",
+            "lemma": "still"
+          },
+          {
+            "text": "came",
+            "pos": "VERB",
+            "lemma": "come"
+          },
+          {
+            "text": "to",
+            "pos": "PART",
+            "lemma": "to"
+          },
+          {
+            "text": "help",
+            "pos": "VERB",
+            "lemma": "help"
+          },
+          {
+            "text": "him",
+            "pos": "PRON",
+            "lemma": "he"
+          },
+          {
+            "text": "move",
+            "pos": "VERB",
+            "lemma": "move"
+          },
+          {
+            "text": ".",
+            "pos": "PUNCT",
+            "lemma": "."
+          }
+        ]
+      }
+    ],
+    "B2": [
+      {
+        "text": "The effectiveness of the measure was questioned, since the video was available not only on YouTube, but also on other sites as part of an Internet phenomenon.",
+        "source": "Wikiauto",
+        "level": "B2",
+        "word_count": 27,
+        "clauses": 2,
+        "depth": 9,
+        "verb_forms": [
+          "Past simple passive",
+          "Past simple"
+        ],
+        "tokens": [
+          {
+            "text": "The",
+            "pos": "DET",
+            "lemma": "the"
+          },
+          {
+            "text": "effectiveness",
+            "pos": "NOUN",
+            "lemma": "effectiveness"
+          },
+          {
+            "text": "of",
+            "pos": "ADP",
+            "lemma": "of"
+          },
+          {
+            "text": "the",
+            "pos": "DET",
+            "lemma": "the"
+          },
+          {
+            "text": "measure",
+            "pos": "NOUN",
+            "lemma": "measure"
+          },
+          {
+            "text": "was",
+            "pos": "AUX",
+            "lemma": "be"
+          },
+          {
+            "text": "questioned",
+            "pos": "VERB",
+            "lemma": "question"
+          },
+          {
+            "text": ",",
+            "pos": "PUNCT",
+            "lemma": ","
+          },
+          {
+            "text": "since",
+            "pos": "SCONJ",
+            "lemma": "since"
+          },
+          {
+            "text": "the",
+            "pos": "DET",
+            "lemma": "the"
+          },
+          {
+            "text": "video",
+            "pos": "NOUN",
+            "lemma": "video"
+          },
+          {
+            "text": "was",
+            "pos": "AUX",
+            "lemma": "be"
+          },
+          {
+            "text": "available",
+            "pos": "ADJ",
+            "lemma": "available"
+          },
+          {
+            "text": "not",
+            "pos": "PART",
+            "lemma": "not"
+          },
+          {
+            "text": "only",
+            "pos": "ADV",
+            "lemma": "only"
+          }
+        ]
+      },
+      {
+        "text": "Right now, women face a wage gap in every single state. For those of you who don’t know what that means it’s simple: women",
+        "source": "ReadMe",
+        "level": "B2",
+        "word_count": 24,
+        "clauses": 4,
+        "depth": 6,
+        "verb_forms": [
+          "Present simple",
+          "Present simple",
+          "Present simple",
+          "Present simple"
+        ],
+        "tokens": [
+          {
+            "text": "Right",
+            "pos": "ADV",
+            "lemma": "right"
+          },
+          {
+            "text": "now",
+            "pos": "ADV",
+            "lemma": "now"
+          },
+          {
+            "text": ",",
+            "pos": "PUNCT",
+            "lemma": ","
+          },
+          {
+            "text": "women",
+            "pos": "NOUN",
+            "lemma": "woman"
+          },
+          {
+            "text": "face",
+            "pos": "VERB",
+            "lemma": "face"
+          },
+          {
+            "text": "a",
+            "pos": "DET",
+            "lemma": "a"
+          },
+          {
+            "text": "wage",
+            "pos": "NOUN",
+            "lemma": "wage"
+          },
+          {
+            "text": "gap",
+            "pos": "NOUN",
+            "lemma": "gap"
+          },
+          {
+            "text": "in",
+            "pos": "ADP",
+            "lemma": "in"
+          },
+          {
+            "text": "every",
+            "pos": "DET",
+            "lemma": "every"
+          },
+          {
+            "text": "single",
+            "pos": "ADJ",
+            "lemma": "single"
+          },
+          {
+            "text": "state",
+            "pos": "NOUN",
+            "lemma": "state"
+          },
+          {
+            "text": ".",
+            "pos": "PUNCT",
+            "lemma": "."
+          },
+          {
+            "text": "For",
+            "pos": "ADP",
+            "lemma": "for"
+          },
+          {
+            "text": "those",
+            "pos": "PRON",
+            "lemma": "those"
+          }
+        ]
+      },
+      {
+        "text": "So named for its resemblance to a ladder, the ladder frame is one of the simplest and oldest of all designs.",
+        "source": "Wikiauto",
+        "level": "B2",
+        "word_count": 21,
+        "clauses": 2,
+        "depth": 6,
+        "verb_forms": [
+          "Participle clause",
+          "Present simple"
+        ],
+        "tokens": [
+          {
+            "text": "So",
+            "pos": "ADV",
+            "lemma": "so"
+          },
+          {
+            "text": "named",
+            "pos": "VERB",
+            "lemma": "name"
+          },
+          {
+            "text": "for",
+            "pos": "ADP",
+            "lemma": "for"
+          },
+          {
+            "text": "its",
+            "pos": "PRON",
+            "lemma": "its"
+          },
+          {
+            "text": "resemblance",
+            "pos": "NOUN",
+            "lemma": "resemblance"
+          },
+          {
+            "text": "to",
+            "pos": "ADP",
+            "lemma": "to"
+          },
+          {
+            "text": "a",
+            "pos": "DET",
+            "lemma": "a"
+          },
+          {
+            "text": "ladder",
+            "pos": "NOUN",
+            "lemma": "ladder"
+          },
+          {
+            "text": ",",
+            "pos": "PUNCT",
+            "lemma": ","
+          },
+          {
+            "text": "the",
+            "pos": "DET",
+            "lemma": "the"
+          },
+          {
+            "text": "ladder",
+            "pos": "NOUN",
+            "lemma": "ladder"
+          },
+          {
+            "text": "frame",
+            "pos": "NOUN",
+            "lemma": "frame"
+          },
+          {
+            "text": "is",
+            "pos": "AUX",
+            "lemma": "be"
+          },
+          {
+            "text": "one",
+            "pos": "NUM",
+            "lemma": "one"
+          },
+          {
+            "text": "of",
+            "pos": "ADP",
+            "lemma": "of"
+          }
+        ]
+      }
+    ],
+    "C1": [
+      {
+        "text": "She studied and wrote until late in the night, and after her first success in literature, when she won all three prizes offered by the Unitarian body for an essay, she set to work on a series of stories which were to illustrate such subjects as the effect of machinery upon wages, free trade, etc.",
+        "source": "ReadMe",
+        "level": "C1",
+        "word_count": 55,
+        "clauses": 7,
+        "depth": 17,
+        "verb_forms": [
+          "Past simple",
+          "Past simple",
+          "Past simple",
+          "Participle clause",
+          "Past simple",
+          "To-infinitive",
+          "Past simple",
+          "To-infinitive"
+        ],
+        "tokens": [
+          {
+            "text": "She",
+            "pos": "PRON",
+            "lemma": "she"
+          },
+          {
+            "text": "studied",
+            "pos": "VERB",
+            "lemma": "study"
+          },
+          {
+            "text": "and",
+            "pos": "CCONJ",
+            "lemma": "and"
+          },
+          {
+            "text": "wrote",
+            "pos": "VERB",
+            "lemma": "write"
+          },
+          {
+            "text": "until",
+            "pos": "ADP",
+            "lemma": "until"
+          },
+          {
+            "text": "late",
+            "pos": "ADV",
+            "lemma": "late"
+          },
+          {
+            "text": "in",
+            "pos": "ADP",
+            "lemma": "in"
+          },
+          {
+            "text": "the",
+            "pos": "DET",
+            "lemma": "the"
+          },
+          {
+            "text": "night",
+            "pos": "NOUN",
+            "lemma": "night"
+          },
+          {
+            "text": ",",
+            "pos": "PUNCT",
+            "lemma": ","
+          },
+          {
+            "text": "and",
+            "pos": "CCONJ",
+            "lemma": "and"
+          },
+          {
+            "text": "after",
+            "pos": "ADP",
+            "lemma": "after"
+          },
+          {
+            "text": "her",
+            "pos": "PRON",
+            "lemma": "her"
+          },
+          {
+            "text": "first",
+            "pos": "ADJ",
+            "lemma": "first"
+          },
+          {
+            "text": "success",
+            "pos": "NOUN",
+            "lemma": "success"
+          }
+        ]
+      },
+      {
+        "text": "During an instrumental interlude, the music creates a thunder storm to indicate the passage of time.",
+        "source": "Wikiauto",
+        "level": "C1",
+        "word_count": 16,
+        "clauses": 2,
+        "depth": 5,
+        "verb_forms": [
+          "Present simple",
+          "To-infinitive"
+        ],
+        "tokens": [
+          {
+            "text": "During",
+            "pos": "ADP",
+            "lemma": "during"
+          },
+          {
+            "text": "an",
+            "pos": "DET",
+            "lemma": "an"
+          },
+          {
+            "text": "instrumental",
+            "pos": "ADJ",
+            "lemma": "instrumental"
+          },
+          {
+            "text": "interlude",
+            "pos": "NOUN",
+            "lemma": "interlude"
+          },
+          {
+            "text": ",",
+            "pos": "PUNCT",
+            "lemma": ","
+          },
+          {
+            "text": "the",
+            "pos": "DET",
+            "lemma": "the"
+          },
+          {
+            "text": "music",
+            "pos": "NOUN",
+            "lemma": "music"
+          },
+          {
+            "text": "creates",
+            "pos": "VERB",
+            "lemma": "create"
+          },
+          {
+            "text": "a",
+            "pos": "DET",
+            "lemma": "a"
+          },
+          {
+            "text": "thunder",
+            "pos": "NOUN",
+            "lemma": "thunder"
+          },
+          {
+            "text": "storm",
+            "pos": "NOUN",
+            "lemma": "storm"
+          },
+          {
+            "text": "to",
+            "pos": "PART",
+            "lemma": "to"
+          },
+          {
+            "text": "indicate",
+            "pos": "VERB",
+            "lemma": "indicate"
+          },
+          {
+            "text": "the",
+            "pos": "DET",
+            "lemma": "the"
+          },
+          {
+            "text": "passage",
+            "pos": "NOUN",
+            "lemma": "passage"
+          }
+        ]
+      },
+      {
+        "text": "Congenital syphilis in the newborn can be prevented by screening mothers during early pregnancy and treating those who are infected.",
+        "source": "Wikiauto",
+        "level": "C1",
+        "word_count": 20,
+        "clauses": 2,
+        "depth": 6,
+        "verb_forms": [
+          "Modal passive",
+          "Gerund / -ing form",
+          "Gerund / -ing form",
+          "Present simple passive"
+        ],
+        "tokens": [
+          {
+            "text": "Congenital",
+            "pos": "ADJ",
+            "lemma": "congenital"
+          },
+          {
+            "text": "syphilis",
+            "pos": "NOUN",
+            "lemma": "syphili"
+          },
+          {
+            "text": "in",
+            "pos": "ADP",
+            "lemma": "in"
+          },
+          {
+            "text": "the",
+            "pos": "DET",
+            "lemma": "the"
+          },
+          {
+            "text": "newborn",
+            "pos": "NOUN",
+            "lemma": "newborn"
+          },
+          {
+            "text": "can",
+            "pos": "AUX",
+            "lemma": "can"
+          },
+          {
+            "text": "be",
+            "pos": "AUX",
+            "lemma": "be"
+          },
+          {
+            "text": "prevented",
+            "pos": "VERB",
+            "lemma": "prevent"
+          },
+          {
+            "text": "by",
+            "pos": "ADP",
+            "lemma": "by"
+          },
+          {
+            "text": "screening",
+            "pos": "VERB",
+            "lemma": "screen"
+          },
+          {
+            "text": "mothers",
+            "pos": "NOUN",
+            "lemma": "mother"
+          },
+          {
+            "text": "during",
+            "pos": "ADP",
+            "lemma": "during"
+          },
+          {
+            "text": "early",
+            "pos": "ADJ",
+            "lemma": "early"
+          },
+          {
+            "text": "pregnancy",
+            "pos": "NOUN",
+            "lemma": "pregnancy"
+          },
+          {
+            "text": "and",
+            "pos": "CCONJ",
+            "lemma": "and"
+          }
+        ]
+      }
+    ],
+    "C2": [
+      {
+        "text": "Massive hydrographical studies are usually undertaken by national or international organizations that sponsor data collection through surveys and publication of charts and descriptive materials for navigational purposes.",
+        "source": "Wikiauto",
+        "level": "C2",
+        "word_count": 27,
+        "clauses": 2,
+        "depth": 10,
+        "verb_forms": [
+          "Present simple passive",
+          "Present simple"
+        ],
+        "tokens": [
+          {
+            "text": "Massive",
+            "pos": "ADJ",
+            "lemma": "massive"
+          },
+          {
+            "text": "hydrographical",
+            "pos": "ADJ",
+            "lemma": "hydrographical"
+          },
+          {
+            "text": "studies",
+            "pos": "NOUN",
+            "lemma": "study"
+          },
+          {
+            "text": "are",
+            "pos": "AUX",
+            "lemma": "be"
+          },
+          {
+            "text": "usually",
+            "pos": "ADV",
+            "lemma": "usually"
+          },
+          {
+            "text": "undertaken",
+            "pos": "VERB",
+            "lemma": "undertake"
+          },
+          {
+            "text": "by",
+            "pos": "ADP",
+            "lemma": "by"
+          },
+          {
+            "text": "national",
+            "pos": "ADJ",
+            "lemma": "national"
+          },
+          {
+            "text": "or",
+            "pos": "CCONJ",
+            "lemma": "or"
+          },
+          {
+            "text": "international",
+            "pos": "ADJ",
+            "lemma": "international"
+          },
+          {
+            "text": "organizations",
+            "pos": "NOUN",
+            "lemma": "organization"
+          },
+          {
+            "text": "that",
+            "pos": "PRON",
+            "lemma": "that"
+          },
+          {
+            "text": "sponsor",
+            "pos": "VERB",
+            "lemma": "sponsor"
+          },
+          {
+            "text": "data",
+            "pos": "NOUN",
+            "lemma": "datum"
+          },
+          {
+            "text": "collection",
+            "pos": "NOUN",
+            "lemma": "collection"
+          }
+        ]
+      },
+      {
+        "text": "Potassium bromate is produced when bromine is passed through a hot solution of potassium hydroxide.",
+        "source": "Wikiauto",
+        "level": "C2",
+        "word_count": 15,
+        "clauses": 2,
+        "depth": 6,
+        "verb_forms": [
+          "Present simple passive",
+          "Present simple passive"
+        ],
+        "tokens": [
+          {
+            "text": "Potassium",
+            "pos": "NOUN",
+            "lemma": "potassium"
+          },
+          {
+            "text": "bromate",
+            "pos": "NOUN",
+            "lemma": "bromate"
+          },
+          {
+            "text": "is",
+            "pos": "AUX",
+            "lemma": "be"
+          },
+          {
+            "text": "produced",
+            "pos": "VERB",
+            "lemma": "produce"
+          },
+          {
+            "text": "when",
+            "pos": "SCONJ",
+            "lemma": "when"
+          },
+          {
+            "text": "bromine",
+            "pos": "NOUN",
+            "lemma": "bromine"
+          },
+          {
+            "text": "is",
+            "pos": "AUX",
+            "lemma": "be"
+          },
+          {
+            "text": "passed",
+            "pos": "VERB",
+            "lemma": "pass"
+          },
+          {
+            "text": "through",
+            "pos": "ADP",
+            "lemma": "through"
+          },
+          {
+            "text": "a",
+            "pos": "DET",
+            "lemma": "a"
+          },
+          {
+            "text": "hot",
+            "pos": "ADJ",
+            "lemma": "hot"
+          },
+          {
+            "text": "solution",
+            "pos": "NOUN",
+            "lemma": "solution"
+          },
+          {
+            "text": "of",
+            "pos": "ADP",
+            "lemma": "of"
+          },
+          {
+            "text": "potassium",
+            "pos": "NOUN",
+            "lemma": "potassium"
+          },
+          {
+            "text": "hydroxide",
+            "pos": "NOUN",
+            "lemma": "hydroxide"
+          }
+        ]
+      },
+      {
+        "text": "It has been suggested that many of the existing plant and most animal species have undergone an event of polyploidization in their evolutionary history.",
+        "source": "Wikiauto",
+        "level": "C2",
+        "word_count": 24,
+        "clauses": 2,
+        "depth": 5,
+        "verb_forms": [
+          "Perfect passive",
+          "Gerund / -ing form",
+          "Present perfect"
+        ],
+        "tokens": [
+          {
+            "text": "It",
+            "pos": "PRON",
+            "lemma": "it"
+          },
+          {
+            "text": "has",
+            "pos": "AUX",
+            "lemma": "have"
+          },
+          {
+            "text": "been",
+            "pos": "AUX",
+            "lemma": "be"
+          },
+          {
+            "text": "suggested",
+            "pos": "VERB",
+            "lemma": "suggest"
+          },
+          {
+            "text": "that",
+            "pos": "SCONJ",
+            "lemma": "that"
+          },
+          {
+            "text": "many",
+            "pos": "ADJ",
+            "lemma": "many"
+          },
+          {
+            "text": "of",
+            "pos": "ADP",
+            "lemma": "of"
+          },
+          {
+            "text": "the",
+            "pos": "DET",
+            "lemma": "the"
+          },
+          {
+            "text": "existing",
+            "pos": "VERB",
+            "lemma": "exist"
+          },
+          {
+            "text": "plant",
+            "pos": "NOUN",
+            "lemma": "plant"
+          },
+          {
+            "text": "and",
+            "pos": "CCONJ",
+            "lemma": "and"
+          },
+          {
+            "text": "most",
+            "pos": "ADJ",
+            "lemma": "most"
+          },
+          {
+            "text": "animal",
+            "pos": "NOUN",
+            "lemma": "animal"
+          },
+          {
+            "text": "species",
+            "pos": "NOUN",
+            "lemma": "specie"
+          },
+          {
+            "text": "have",
+            "pos": "AUX",
+            "lemma": "have"
+          }
+        ]
+      }
+    ]
+  }
+}

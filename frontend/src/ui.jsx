@@ -49,7 +49,7 @@ export function LevelBadge({ level, score, label, size = 'md' }) {
   );
 }
 
-export function LevelProgressBar({ title, level, score, info }) {
+export function LevelProgressBar({ title, level, score }) {
   const base = level ? level.substring(0, 2) : 'A1';
   const colors = getLevelColor(base);
   const val = score || 1.0;
@@ -59,10 +59,7 @@ export function LevelProgressBar({ title, level, score, info }) {
   return (
     <div className="breakdown-item">
       <div className="breakdown-header">
-        <span className="breakdown-title">
-          {title}
-          {info && <span className="info-icon" title={info}>ⓘ</span>}
-        </span>
+        <span className="breakdown-title">{title}</span>
         <span className="breakdown-val" style={{ color: colors.text }}>
           {level}
         </span>

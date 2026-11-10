@@ -135,121 +135,137 @@ function getModelFeatureSummary(scope, metrics) {
     return [
       {
         key: 'rf',
-        name: 'Random Forest',
-        inputType: '41 Word Features (Tabular)',
-        features: ['Zipf word frequency', 'Word length & Syllables', 'Vowel ratio & Hyphen', '24 Suffixes (-tion, -ity, -ous...)', '12 Prefixes (un-, dis-, inter-...)'],
-        logic: 'ใช้ความถี่คำและโครงสร้างหน่วยคำ (Morphology) จัดลำดับความยากของคำนอกพจนานุกรม (OOV)',
+        usesFeatures: true,
+        name: 'Random Forest (+Features)',
+        inputType: '41 Word Features',
+        features: ['Zipf word frequency', 'Word length & Syllables', 'Vowel ratio & Hyphen', '24 Suffixes + 12 Prefixes'],
+        logic: 'ใช้ความถี่คำและโครงสร้างหน่วยคำ (Morphology) ทำนายความยากของคำนอกพจนานุกรม (OOV)',
       },
       {
         key: 'bytelstm',
-        name: 'Byte-LSTM',
-        inputType: 'UTF-8 Byte Sequence (max 32 bytes)',
-        features: ['Raw character bytes (vocab 258)', '32d Learned Byte Embedding', '2-Layer BiLSTM + Attention & Max Pool'],
-        logic: 'เรียนรู้แพทเทิร์นตัวอักษร รากศัพท์ และคำลงท้ายจากระดับไบต์โดยไม่ต้องตัดคำ',
+        usesFeatures: false,
+        name: 'Byte-LSTM (Bytes Only)',
+        inputType: 'UTF-8 Bytes (No Features)',
+        features: ['Raw character bytes (vocab 258, max 32 bytes)', '32d Learned Byte Embedding + 2-Layer BiLSTM'],
+        logic: 'อ่านจากตัวอักษรล้วน ไม่เห็นค่า Zipf หรือสถิติที่สกัดไว้เลย',
       },
       {
         key: 'hybrid',
-        name: 'Hybrid (Byte-LSTM + Features)',
+        usesFeatures: true,
+        name: 'Byte-LSTM + Features (Hybrid)',
         inputType: 'UTF-8 Bytes + 41 Word Features',
-        features: ['Byte-LSTM sequence vector', 'Standardized 41 Word Features (zipf, length, syllables, affixes)', 'Fused MLP Classification Head'],
-        logic: 'ผสานบริบทระดับตัวอักษรเข้ากับความถี่คำ Zipf และโครงสร้างพยางค์',
+        features: ['Byte-LSTM sequence vector', 'Standardized 41 Word Features (zipf, length, syllables, affixes)'],
+        logic: 'ผสาน Byte-LSTM เข้ากับ 41 Word Features เพื่อวัดผลต่างเทียบกับ Byte-LSTM ล้วน',
       },
     ];
   }
   if (scope === 'document') {
     return [
       {
+        key: 'rf_tfidf',
+        usesFeatures: false,
+        name: 'Random Forest (TF-IDF Only)',
+        inputType: 'TF-IDF 1-2 grams (No Ling. Features)',
+        features: ['Top 8,000 word 1-2 grams TF-IDF', 'ไม่ใช้ Wordlist, Tense, Clause หรือ Readability'],
+        logic: 'Baseline ฝั่ง RF ที่ดูแค่สถิติความถี่คำดิบในบทความ ไม่มีตรรกะภาษาศาสตร์',
+      },
+      {
         key: 'rf',
-        name: 'Random Forest',
-        inputType: '212 Document Features',
+        usesFeatures: true,
+        name: 'Random Forest (+Features)',
+        inputType: '212 Doc Features',
         features: [
           'Mean / Max / Std of 65 Sentence Features (195)',
-          'Doc stats: n_sentences, doc_ttr, B2+/C1+ share (5)',
-          'Sentence RF probabilities & level histogram (12)',
+          'Doc stats: n_sentences, doc_ttr, B2+/C1+ share (5) + Sent RF signals (12)',
         ],
-        logic: 'รวมสถิติความยากคำ ศัพท์สูง โครงสร้างประโยค Tense และสัดส่วนความยากรายประโยคทั้งบทความ',
+        logic: 'รวมสถิติความยากคำ โครงสร้างประโยค Tense และระดับรายประโยคทั้งบทความ',
       },
       {
         key: 'bilstm',
-        name: 'Word BiLSTM',
-        inputType: 'Hierarchical Sentence BiLSTM Embeddings',
-        features: [
-          'Raw word sequence per sentence (300d GloVe)',
-          'Mean + Max Pooling of Sentence BiLSTM vectors',
-          'Sentence level probabilities + histogram -> Logistic Regression',
-        ],
-        logic: 'ดึงความหมายและบริบทลำดับคำของทุกประโยคในบทความมารวมกันแบบ Hierarchical',
-      },
-      {
-        key: 'bytelstm',
-        name: 'Byte-LSTM',
-        inputType: 'Hierarchical Byte-LSTM Embeddings',
-        features: [
-          'UTF-8 bytes per sentence (vocab 258)',
-          'Mean + Max Pooling of Sentence Byte-LSTM vectors',
-          'Sentence level probabilities + histogram -> Logistic Regression',
-        ],
-        logic: 'จับรูปแบบ Morphology และคำศัพท์ยาว/ซับซ้อนในระดับตัวอักษรทั้งบทความ',
+        usesFeatures: false,
+        name: 'Word BiLSTM (Raw Only)',
+        inputType: 'Pooled Word Sequence (No Ling. Features)',
+        features: ['Raw word sequence per sentence (300d GloVe)', 'Mean + Max Pooling -> Logistic Regression'],
+        logic: 'อ่านข้อความดิบล้วน ไม่เห็นพจนานุกรมหรือฟีเจอร์ไวยากรณ์',
       },
       {
         key: 'hybrid',
-        name: 'Hybrid (BiLSTM + Features)',
-        inputType: 'Hierarchical BiLSTM + 200 Doc Linguistic Features',
-        features: [
-          `Word BiLSTM (${hybridInput}) + 65 Sent Features`,
-          'Standardized 200 Document Linguistic Features',
-          'Mean/Max Sentence Vectors + Doc Features -> Logistic Regression',
-        ],
-        logic: 'รวมทั้งความเข้าใจบริบทจาก Deep Learning และตรรกะไวยากรณ์ (Vocab, Tense, Clause, Readability)',
+        usesFeatures: true,
+        name: 'Word BiLSTM + Features (Hybrid)',
+        inputType: `BiLSTM (${hybridInput}) + 200 Doc Features`,
+        features: [`Pooled BiLSTM vectors (${hybridInput})`, 'Standardized 200 Document Linguistic Features'],
+        logic: 'รวมบริบท Word BiLSTM เข้ากับ 200 Document Linguistic Features',
+      },
+      {
+        key: 'bytelstm',
+        usesFeatures: false,
+        name: 'Byte-LSTM (Bytes Only)',
+        inputType: 'Pooled UTF-8 Bytes (No Ling. Features)',
+        features: ['UTF-8 bytes per sentence (vocab 258)', 'Mean + Max Pooling -> Logistic Regression'],
+        logic: 'อ่านระดับไบต์ล้วน ไม่ใช้คำศัพท์หรือกฎไวยากรณ์',
+      },
+      {
+        key: 'bytehybrid',
+        usesFeatures: true,
+        name: 'Byte-LSTM + Features',
+        inputType: 'Byte-LSTM + 200 Doc Features',
+        features: ['Pooled Byte-LSTM vectors', 'Standardized 200 Document Linguistic Features'],
+        logic: 'รวม Byte-LSTM เข้ากับ 200 Document Linguistic Features เพื่อเทียบกับ Byte-LSTM ล้วน',
       },
     ];
   }
   // sentence scope
   return [
     {
+      key: 'rf_tfidf',
+      usesFeatures: false,
+      name: 'Random Forest (TF-IDF Only)',
+      inputType: 'TF-IDF 1-2 grams (No Ling. Features)',
+      features: ['Top 5,000 word 1-2 grams TF-IDF', 'ไม่ใช้ Wordlist, Zipf, Tense หรือ Clause'],
+      logic: 'RF แบบดั้งเดิมที่นับแค่คำที่ปรากฏ เทียบให้เห็นคุณค่าของ 65 Linguistic Features',
+    },
+    {
       key: 'rf',
-      name: 'Random Forest',
+      usesFeatures: true,
+      name: 'Random Forest (+Features)',
       inputType: '65 Linguistic Features',
       features: [
-        'Vocabulary (22): prop_A1..C2, min/mean Zipf, syllables, TTR, OOV',
-        'Verb Form / Tense (14): max/mean VF level, perfect, passive, modal',
-        'Clause & Syntax (13): n_clauses, tree_depth, dep_dist, rel/advcl',
-        'POS, NER & Readability (16): 12 POS ratios, entities, Flesch, FK Grade',
+        'Vocabulary (22) · Verb/Tense (14) · Clause (13) · POS/NER/Readability (16)',
+        'ใช้พจนานุกรม CEFR + Zipf + กฎตรวจ Tense & Dependency Tree',
       ],
-      logic: 'ตัดสินใจด้วยกติกาไวยากรณ์ ความซับซ้อนโครงสร้างต้นไม้ และสถิติความหายากของคำศัพท์ล้วนๆ',
+      logic: 'ตัดสินใจด้วยกติกาไวยากรณ์ ความซับซ้อนต้นไม้ประโยค และความยากคำศัพท์',
     },
     {
       key: 'bilstm',
-      name: 'Word BiLSTM',
-      inputType: 'Raw Word Sequence (max 100 tokens)',
-      features: [
-        'Raw tokens (คงรูปผันกริยา/Tense ไม่ผ่าน Lemma)',
-        '300d Pretrained spaCy GloVe Word Embeddings',
-        '2-Layer BiLSTM (128d) + Attention & Max Pooling (512d)',
-      ],
-      logic: 'อ่านลำดับคำและรูปกริยาดิบจากซ้ายไปขวาและขวาไปซ้ายเพื่อจับบริบทประโยค',
-    },
-    {
-      key: 'bytelstm',
-      name: 'Byte-LSTM',
-      inputType: 'UTF-8 Byte Sequence (max 400 bytes)',
-      features: [
-        'Raw UTF-8 bytes (0–255, vocab 258)',
-        '64d Learned Byte Embeddings',
-        '2-Layer BiLSTM + Attention & Max Pooling (512d)',
-      ],
-      logic: 'ไม่อาศัย Dictionary แต่จับความซับซ้อนจากความยาวและรากคำ/หน่วยคำระดับ Byte โดยตรง',
+      usesFeatures: false,
+      name: 'Word BiLSTM (Raw Only)',
+      inputType: 'Raw Word Sequence (No Ling. Features)',
+      features: ['Raw tokens (max 100) + 300d GloVe Embeddings', '2-Layer BiLSTM + Attention & Max Pooling'],
+      logic: 'อ่านลำดับคำดิบล้วน ไม่เห็น Wordlist หรือค่า Tense/Clause ที่สกัดไว้',
     },
     {
       key: 'hybrid',
-      name: 'Hybrid (BiLSTM + Features)',
-      inputType: `${hybridInput} + 65 Linguistic Features`,
-      features: [
-        `Word BiLSTM encoder on ${hybridInput} (512d)`,
-        'MLP projection of 65 Standardized Linguistic Features (64d)',
-        'Concatenated 576d representation -> 6 CEFR classes',
-      ],
-      logic: 'รวม Deep Learning (บริบทลำดับคำ) เข้ากับ Logic เชิงภาษาศาสตร์ (Tense, Clause, Vocab, Readability)',
+      usesFeatures: true,
+      name: 'Word BiLSTM + Features (Hybrid)',
+      inputType: `${hybridInput} + 65 Features`,
+      features: [`Word BiLSTM on ${hybridInput} (512d)`, 'MLP projection of 65 Linguistic Features (64d)'],
+      logic: 'รวมบริบท Word BiLSTM เข้ากับ 65 Linguistic Features',
+    },
+    {
+      key: 'bytelstm',
+      usesFeatures: false,
+      name: 'Byte-LSTM (Bytes Only)',
+      inputType: 'UTF-8 Bytes (No Ling. Features)',
+      features: ['Raw UTF-8 bytes (0–255, max 400 bytes)', '64d Byte Embeddings + 2-Layer BiLSTM'],
+      logic: 'อ่านระดับไบต์ล้วน ไม่ตัดคำและไม่ใช้ฟีเจอร์ภาษาศาสตร์',
+    },
+    {
+      key: 'bytehybrid',
+      usesFeatures: true,
+      name: 'Byte-LSTM + Features',
+      inputType: 'UTF-8 Bytes + 65 Features',
+      features: ['Byte-LSTM sequence vector (512d)', 'MLP projection of 65 Linguistic Features (64d)'],
+      logic: 'รวม Byte-LSTM เข้ากับ 65 Linguistic Features เพื่อวัดผลต่างเทียบกับ Byte-LSTM ล้วน',
     },
   ];
 }
@@ -257,7 +273,7 @@ function getModelFeatureSummary(scope, metrics) {
 export default function CompareTab() {
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [scope, setScope] = useState('sentence'); // 'sentence' | 'document' | 'word'
+  const [scope, setScope] = useState('document'); // 'document' | 'sentence' | 'word'
   const [liveText, setLiveText] = useState('Experts have been examining the fake news phenomenon.');
   const [liveResult, setLiveResult] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
@@ -286,7 +302,7 @@ export default function CompareTab() {
     setScope(newScope);
     setFeatGroupFilter('ALL');
     setFeatSearch('');
-    if (newScope === 'word' && selectedConfModel === 'bilstm') {
+    if (newScope === 'word' && !['rf', 'bytelstm', 'hybrid'].includes(selectedConfModel)) {
       setSelectedConfModel('rf');
     }
   };
@@ -310,12 +326,26 @@ export default function CompareTab() {
   };
 
   const scopeData = metrics?.[scope] || {};
-  const models = scope === 'word' ? ['rf', 'bytelstm', 'hybrid'] : ['rf', 'bilstm', 'bytelstm', 'hybrid'];
+  const modelOrder =
+    scope === 'word'
+      ? ['rf', 'bytelstm', 'hybrid']
+      : ['rf_tfidf', 'rf', 'bilstm', 'hybrid', 'bytelstm', 'bytehybrid'];
+  const models = modelOrder.filter((m) => scopeData[m]?.test);
   const modelNames = {
-    rf: 'Random Forest (Linguistic)',
-    bilstm: 'Word BiLSTM (GloVe 300d)',
-    bytelstm: 'Byte-LSTM (UTF-8 Bytes)',
-    hybrid: 'Hybrid (BiLSTM + Features)',
+    rf_tfidf: 'Random Forest (TF-IDF Only)',
+    rf: 'Random Forest (+Features)',
+    bilstm: 'Word BiLSTM (Raw Only)',
+    hybrid: 'Word BiLSTM + Features (Hybrid)',
+    bytelstm: 'Byte-LSTM (Bytes Only)',
+    bytehybrid: 'Byte-LSTM + Features',
+  };
+  const usesFeaturesMap = {
+    rf_tfidf: false,
+    rf: true,
+    bilstm: false,
+    hybrid: true,
+    bytelstm: false,
+    bytehybrid: true,
   };
 
   // Full ranked features (fallback to top 25 if backend not enriched)
@@ -391,11 +421,31 @@ export default function CompareTab() {
 
   const confMatrix = scopeData[selectedConfModel]?.test?.confusion || [];
   const maxConfVal = Math.max(...confMatrix.flat(), 1);
-  const modelFeatureSpecs = getModelFeatureSummary(scope, metrics);
+  const modelFeatureSpecs = getModelFeatureSummary(scope, metrics).filter((s) => scopeData[s.key]?.test);
 
-  // Build neural learning curve data (Val Macro-F1 across epochs)
+  // Paired With vs Without Linguistic Features comparison
+  const defaultPairs =
+    scope === 'word'
+      ? [{ family: 'Byte-LSTM', without: 'bytelstm', with: 'hybrid', without_desc: 'UTF-8 Bytes Only', with_desc: 'Bytes + 41 Word Features' }]
+      : [
+          { family: 'Random Forest', without: 'rf_tfidf', with: 'rf', without_desc: 'TF-IDF 1-2 grams', with_desc: 'Linguistic Features' },
+          { family: 'Word BiLSTM', without: 'bilstm', with: 'hybrid', without_desc: 'Raw Sequence', with_desc: 'Word BiLSTM + Features' },
+          { family: 'Byte-LSTM', without: 'bytelstm', with: 'bytehybrid', without_desc: 'UTF-8 Bytes Only', with_desc: 'Byte-LSTM + Features' },
+        ];
+  const featurePairs = (metrics.feature_comparison?.[scope] || defaultPairs).filter(
+    (p) => scopeData[p.without]?.test && scopeData[p.with]?.test
+  );
+  const pairChartData = featurePairs.map((p) => ({
+    family: p.family,
+    'Without Features (Acc)': Number((scopeData[p.without].test.accuracy * 100).toFixed(1)),
+    'With Features (Acc)': Number((scopeData[p.with].test.accuracy * 100).toFixed(1)),
+    'Without Features (QWK)': Number((scopeData[p.without].test.qwk * 100).toFixed(1)),
+    'With Features (QWK)': Number((scopeData[p.with].test.qwk * 100).toFixed(1)),
+  }));
+
+  // Build neural learning curve data (Dev QWK across epochs)
   const historyEpochs = (() => {
-    const neuralModels = models.filter((m) => m !== 'rf' && scopeData[m]?.history?.length);
+    const neuralModels = models.filter((m) => !m.startsWith('rf') && scopeData[m]?.history?.length);
     if (!neuralModels.length) return [];
     const maxEp = Math.max(...neuralModels.map((m) => scopeData[m].history.length));
     const rows = [];
@@ -413,6 +463,12 @@ export default function CompareTab() {
     return rows;
   })();
 
+  const fmtDelta = (a, b, isPercent = true) => {
+    const diff = (b - a) * (isPercent ? 100 : 1);
+    const sign = diff >= 0 ? '+' : '';
+    return { text: `${sign}${diff.toFixed(1)}${isPercent ? '%' : ''}`, pos: diff >= 0 };
+  };
+
   return (
     <div className="compare-container">
       {/* Scope Selector Header */}
@@ -426,7 +482,7 @@ export default function CompareTab() {
           </p>
         </div>
         <div className="scope-tabs">
-          {['sentence', 'document', 'word'].map((s) => (
+          {['document', 'sentence', 'word'].map((s) => (
             <button
               key={s}
               className={`scope-tab-btn ${scope === s ? 'active' : ''}`}
@@ -445,6 +501,7 @@ export default function CompareTab() {
             <thead>
               <tr>
                 <th>Model Architecture</th>
+                <th>Linguistic Features</th>
                 <th>Accuracy</th>
                 <th>Adjacent Acc (±1)</th>
                 <th>Macro F1</th>
@@ -459,12 +516,18 @@ export default function CompareTab() {
                 const res = scopeData[m]?.test;
                 if (!res) return null;
                 const isBest = metrics.best?.[scope] === m;
+                const usesFeat = usesFeaturesMap[m];
 
                 return (
                   <tr key={m} className={isBest ? 'highlight-row' : ''}>
                     <td className="font-bold flex items-center gap-2">
-                      {modelNames[m]}
+                      {modelNames[m] || m}
                       {isBest && <span className="best-pill">BEST</span>}
+                    </td>
+                    <td>
+                      <span className={`feat-mode-pill ${usesFeat ? 'with-feat' : 'no-feat'}`}>
+                        {usesFeat ? '✓ With Features' : '✕ Raw / No Features'}
+                      </span>
                     </td>
                     <td className="font-semibold">{(res.accuracy * 100).toFixed(1)}%</td>
                     <td className="font-semibold text-success">
@@ -485,6 +548,88 @@ export default function CompareTab() {
         </div>
       </Card>
 
+      {/* 1b. Controlled Comparison: Without vs With Linguistic Features */}
+      {featurePairs.length > 0 && (
+        <Card
+          title={`Controlled Experiment: Without vs With Linguistic Features (${scope.toUpperCase()} Level)`}
+          icon={<Zap size={18} className="text-primary" />}
+          badge={<span className="badge-tag">Controlled 2×N Comparison (+Δ Impact)</span>}
+        >
+          <p className="text-sm text-muted mb-4">
+            เทียบโมเดลในตระกูลเดียวกันแบบ <strong>ไม่ใช้ Linguistic Features (Raw/TF-IDF)</strong> กับ <strong>ใช้ Linguistic Features</strong> เพื่อวัดว่าฟีเจอร์ทางภาษา (Vocab, Tense, Clause, Readability) ช่วยเพิ่มความแม่นยำได้จริงเท่าไหร่
+          </p>
+          <div className="table-responsive mb-4">
+            <table className="compare-table text-xs">
+              <thead>
+                <tr>
+                  <th>Model Family</th>
+                  <th>✕ Without Features</th>
+                  <th>Acc / QWK (No Feat)</th>
+                  <th>✓ With Features</th>
+                  <th>Acc / QWK (+Feat)</th>
+                  <th>Δ Accuracy</th>
+                  <th>Δ Macro F1</th>
+                  <th>Δ QWK</th>
+                </tr>
+              </thead>
+              <tbody>
+                {featurePairs.map((p) => {
+                  const a = scopeData[p.without].test;
+                  const b = scopeData[p.with].test;
+                  const dAcc = fmtDelta(a.accuracy, b.accuracy);
+                  const dF1 = fmtDelta(a.macro_f1, b.macro_f1);
+                  const dQwk = fmtDelta(a.qwk, b.qwk);
+                  return (
+                    <tr key={p.family}>
+                      <td className="font-bold text-sm">{p.family}</td>
+                      <td>
+                        <div className="font-semibold">{modelNames[p.without]}</div>
+                        <div className="text-muted">{p.without_desc}</div>
+                      </td>
+                      <td className="font-mono">
+                        {(a.accuracy * 100).toFixed(1)}% / {(a.qwk * 100).toFixed(1)}%
+                      </td>
+                      <td>
+                        <div className="font-semibold text-primary">{modelNames[p.with]}</div>
+                        <div className="text-muted">{p.with_desc}</div>
+                      </td>
+                      <td className="font-mono font-bold">
+                        {(b.accuracy * 100).toFixed(1)}% / {(b.qwk * 100).toFixed(1)}%
+                      </td>
+                      <td className={`font-mono font-bold ${dAcc.pos ? 'text-success' : 'text-danger'}`}>
+                        {dAcc.text}
+                      </td>
+                      <td className={`font-mono font-bold ${dF1.pos ? 'text-success' : 'text-danger'}`}>
+                        {dF1.text}
+                      </td>
+                      <td className={`font-mono font-bold ${dQwk.pos ? 'text-success' : 'text-danger'}`}>
+                        {dQwk.text}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ height: 230 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={pairChartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <XAxis dataKey="family" />
+                <YAxis domain={[0, 100]} unit="%" />
+                <RechartsTooltip formatter={(v) => `${v}%`} />
+                <Legend />
+                <Bar dataKey="Without Features (Acc)" fill="#94A3B8" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="With Features (Acc)" fill="#2563EB" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Without Features (QWK)" fill="#CBD5E1" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="With Features (QWK)" fill="#10B981" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      )}
+
       {/* 2. Features Used by Each Model */}
       <Card
         title={`Features Used by Each Model — ฟีเจอร์ที่แต่ละโมเดลใช้ (${scope.toUpperCase()} Level)`}
@@ -503,7 +648,12 @@ export default function CompareTab() {
                     {spec.name}
                     {isBest && <span className="best-pill">BEST</span>}
                   </div>
-                  <span className="badge-tag">{spec.inputType}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`feat-mode-pill ${spec.usesFeatures ? 'with-feat' : 'no-feat'}`}>
+                      {spec.usesFeatures ? '+Features' : 'No Features'}
+                    </span>
+                    <span className="badge-tag">{spec.inputType}</span>
+                  </div>
                 </div>
                 <p className="text-xs text-muted mb-2">{spec.logic}</p>
                 <ul className="feature-bullet-list">
@@ -744,13 +894,16 @@ export default function CompareTab() {
                 <RechartsTooltip formatter={(v) => `${v}%`} />
                 <Legend />
                 {models.includes('bilstm') && scopeData.bilstm?.history?.length > 0 && (
-                  <Line type="monotone" dataKey="bilstm_qwk" name="Word BiLSTM QWK" stroke="#3B82F6" strokeWidth={2} />
+                  <Line type="monotone" dataKey="bilstm_qwk" name="Word BiLSTM (Raw) QWK" stroke="#3B82F6" strokeWidth={2} />
                 )}
                 {models.includes('bytelstm') && scopeData.bytelstm?.history?.length > 0 && (
-                  <Line type="monotone" dataKey="bytelstm_qwk" name="Byte-LSTM QWK" stroke="#10B981" strokeWidth={2} />
+                  <Line type="monotone" dataKey="bytelstm_qwk" name="Byte-LSTM (Bytes) QWK" stroke="#10B981" strokeWidth={2} />
                 )}
                 {models.includes('hybrid') && scopeData.hybrid?.history?.length > 0 && (
-                  <Line type="monotone" dataKey="hybrid_qwk" name="Hybrid QWK" stroke="#7C3AED" strokeWidth={2.5} />
+                  <Line type="monotone" dataKey="hybrid_qwk" name="Word BiLSTM +Feat QWK" stroke="#7C3AED" strokeWidth={2.5} />
+                )}
+                {models.includes('bytehybrid') && scopeData.bytehybrid?.history?.length > 0 && (
+                  <Line type="monotone" dataKey="bytehybrid_qwk" name="Byte-LSTM +Feat QWK" stroke="#EC4899" strokeWidth={2.5} />
                 )}
               </LineChart>
             </ResponsiveContainer>
@@ -914,13 +1067,20 @@ export default function CompareTab() {
 
         {liveResult && (
           <div className="grid grid-cols-4 gap-4">
-            {['rf', 'bilstm', 'bytelstm', 'hybrid'].map((m) => {
+            {Object.keys(liveResult.comparison || {}).map((m) => {
               const res = liveResult.comparison?.[m];
               if (!res) return null;
               return (
                 <div key={m} className="live-model-box">
                   <div className="live-model-header">
-                    <span className="font-bold text-sm">{m.toUpperCase()}</span>
+                    <div>
+                      <span className="font-bold text-sm">{modelNames[m] || m.toUpperCase()}</span>
+                      <div>
+                        <span className={`feat-mode-pill ${usesFeaturesMap[m] ? 'with-feat' : 'no-feat'}`}>
+                          {usesFeaturesMap[m] ? '+Features' : 'No Features'}
+                        </span>
+                      </div>
+                    </div>
                     <LevelBadge level={res.document?.level} label={res.document?.label} />
                   </div>
                   <div className="prob-bars mt-2">

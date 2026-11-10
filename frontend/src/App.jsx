@@ -16,6 +16,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [backendReady, setBackendReady] = useState(false);
   const [bestModel, setBestModel] = useState(null);
+  const [availableModels, setAvailableModels] = useState(null);
 
   // Check health and run initial analysis on startup
   useEffect(() => {
@@ -25,6 +26,9 @@ export default function App() {
         setBackendReady(true);
         if (data.best_model) {
           setBestModel(data.best_model);
+        }
+        if (Array.isArray(data.available_models)) {
+          setAvailableModels(data.available_models);
         }
       })
       .catch((err) => {
@@ -100,6 +104,7 @@ export default function App() {
             analysis={analysis}
             loading={loading}
             bestModel={bestModel}
+            availableModels={availableModels}
           />
         )}
 

@@ -277,17 +277,11 @@ body {
   background: white;
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  padding: 18px 20px;
+  padding: 20px 22px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: center;
   box-shadow: var(--shadow-sm);
-}
-
-.card-top-chips {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 12px;
 }
 
 .chip {
@@ -1204,5 +1198,25 @@ body {
   border-radius: 9999px;
   white-space: nowrap;
 }
+
+.feat-mode-pill {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.feat-mode-pill.with-feat {
+  background-color: #DBEAFE;
+  color: #1D4ED8;
+}
+
+.feat-mode-pill.no-feat {
+  background-color: #F1F5F9;
+  color: #475569;
+}
+
 
 

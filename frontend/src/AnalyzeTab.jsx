@@ -24,10 +24,12 @@ import {
 
 const MODEL_OPTIONS = [
   { id: 'auto', label: 'Auto (Best)', desc: 'เลือกโมเดลที่ดีที่สุดจาก dev set อัตโนมัติ' },
-  { id: 'rf', label: 'Random Forest', desc: 'ML ดั้งเดิม + 65/212 Linguistic Features' },
-  { id: 'bilstm', label: 'Word BiLSTM', desc: 'Deep Learning ลำดับคำ + GloVe 300d' },
-  { id: 'bytelstm', label: 'Byte-LSTM', desc: 'UTF-8 Bytes จับ Morphology ไม่มี OOV' },
-  { id: 'hybrid', label: 'Hybrid', desc: 'BiLSTM + Linguistic Features' },
+  { id: 'rf', label: 'RF (+Features)', desc: 'Random Forest + Linguistic Features (Vocab/Tense/Clause)' },
+  { id: 'rf_tfidf', label: 'RF (TF-IDF)', desc: 'Random Forest บนข้อความ TF-IDF ล้วน (ไม่ใช้ Linguistic Features)' },
+  { id: 'bilstm', label: 'Word BiLSTM (Raw)', desc: 'Word BiLSTM อ่านคำดิบล้วน (ไม่ใช้ Linguistic Features)' },
+  { id: 'hybrid', label: 'Word BiLSTM +Feat', desc: 'Word BiLSTM + Linguistic Features (Hybrid)' },
+  { id: 'bytelstm', label: 'Byte-LSTM (Bytes)', desc: 'Byte-LSTM อ่านรหัสตัวอักษรล้วน (ไม่ใช้ Linguistic Features)' },
+  { id: 'bytehybrid', label: 'Byte-LSTM +Feat', desc: 'Byte-LSTM + Linguistic Features' },
 ];
 
 const SAMPLE_TEXT = `Every time you're online, you are bombarded by pictures, articles, links and videos trying to tell their story. Unfortunately, not all of these stories are true. Sometimes they want you to click on another story or advertisement at their own site, other times they want to upset people for political reasons. These days it's so easy to share information. These stories circulate quickly, and the result is ... fake news.
@@ -36,7 +38,7 @@ There is a range of fake news: from crazy stories which people easily recognise 
 1. Check the source
 Look at the website where the story comes from. Does it look real? Is the text well written? Are there a variety of other stories or is it just one story? Fake news websites often use addresses that sound like real newspapers, but don't have many real stories about other topics. If you aren't sure, click on the 'About' page and look for a clear description of the organisation.`;
 
-export default function AnalyzeTab({ onAnalyze, analysis, loading, bestModel }) {
+export default function AnalyzeTab({ onAnalyze, analysis, loading, bestModel, availableModels }) {
   const [text, setText] = useState(SAMPLE_TEXT);
   const [selectedModel, setSelectedModel] = useState('auto');
   const [colorMode, setColorMode] = useState('word'); // 'word' | 'sentence' | 'none'
@@ -163,12 +165,17 @@ export default function AnalyzeTab({ onAnalyze, analysis, loading, bestModel }) 
                 m.id === 'auto' && bestModel?.document
                   ? ` (${bestModel.document.toUpperCase()})`
                   : '';
+              const isReady =
+                m.id === 'auto' ||
+                !availableModels ||
+                availableModels.length === 0 ||
+                availableModels.includes(m.id);
               return (
                 <button
                   key={m.id}
                   type="button"
-                  disabled={loading}
-                  title={m.desc}
+                  disabled={loading || !isReady}
+                  title={isReady ? m.desc : `${m.desc} — ต้องรัน ml_models.py ใหม่ก่อนใช้งาน`}
                   className={`model-pill-btn ${selectedModel === m.id ? 'active' : ''}`}
                   onClick={() => handleModelSelect(m.id)}
                 >
@@ -212,15 +219,9 @@ export default function AnalyzeTab({ onAnalyze, analysis, loading, bestModel }) 
           <div className="summary-row">
             {/* General Level Card */}
             <div className="general-level-card">
-              <div className="card-top-chips">
-                <span className="chip">propn. -∞</span>
-                <span className="chip">intj. -∞</span>
-                <span className="chip">min.</span>
-              </div>
               <div className="general-level-body">
                 <div className="level-title-row">
                   <span className="level-title">General level</span>
-                  <span className="info-icon" title="Overall CEFR proficiency level">ⓘ</span>
                 </div>
                 <div className="level-huge-label">
                   <span className="level-letters">
@@ -265,19 +266,16 @@ export default function AnalyzeTab({ onAnalyze, analysis, loading, bestModel }) 
                   title="Vocabulary"
                   level={analysis.breakdown?.vocabulary?.label || 'B2.1'}
                   score={analysis.breakdown?.vocabulary?.score}
-                  info="Based on vocabulary frequency, lemma distribution, and lexical rarity"
                 />
                 <LevelProgressBar
                   title="Verb form"
                   level={analysis.breakdown?.verb_form?.label || 'A2.9'}
                   score={analysis.breakdown?.verb_form?.score}
-                  info="Evaluated through verb tenses, auxiliaries, active/passive voice, and mood"
                 />
                 <LevelProgressBar
                   title="Clause"
                   level={analysis.breakdown?.clause?.label || 'A2.5'}
                   score={analysis.breakdown?.clause?.score}
-                  info="Assessed by clause depth, subordinate markers, and sentence complexity"
                 />
               </div>
             </div>

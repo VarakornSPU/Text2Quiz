@@ -35,7 +35,9 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split, RandomizedSearchCV, PredefinedSplit
 from sklearn.metrics import (accuracy_score, f1_score, cohen_kappa_score, confusion_matrix,
@@ -46,9 +48,16 @@ import nlp_core as nc  # noqa: E402
 
 ART = nc.ART_DIR
 SEED = 42
-MODEL_NAMES = {"rf": "Random Forest", "bilstm": "Word BiLSTM", "bytelstm": "Byte-LSTM",
-               "hybrid": "Hybrid (BiLSTM + Features)"}
+MODEL_NAMES = {
+    "rf": "Random Forest (Linguistic Features)",
+    "rf_tfidf": "Random Forest (TF-IDF Only)",
+    "bilstm": "Word BiLSTM (Raw Only)",
+    "hybrid": "Word BiLSTM + Features (Hybrid)",
+    "bytelstm": "Byte-LSTM (Bytes Only)",
+    "bytehybrid": "Byte-LSTM + Features",
+}
 torch.set_num_threads(max(1, (os.cpu_count() or 2) - 1))
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def log(*a):
@@ -226,7 +235,7 @@ class CEFRNet(nn.Module):
         packed = pack_padded_sequence(x, lengths.cpu(), batch_first=True, enforce_sorted=False)
         h, _ = self.lstm(packed)
         h, _ = pad_packed_sequence(h, batch_first=True, total_length=ids.size(1))
-        mask = torch.arange(ids.size(1))[None, :] < lengths[:, None]
+        mask = torch.arange(ids.size(1), device=ids.device)[None, :] < lengths.to(ids.device)[:, None]
         a = self.att(h).squeeze(-1).masked_fill(~mask, -1e9).softmax(-1)
         att = (h * a.unsqueeze(-1)).sum(1)
         mx = h.masked_fill(~mask.unsqueeze(-1), -1e9).max(1).values
@@ -302,7 +311,7 @@ def embedding_matrix(vocab, dim=300):
 # =============================================================================
 # [5] NEURAL TRAINING
 # =============================================================================
-def make_batch(enc, items, labels=None):
+def make_batch(enc, items, labels=None, device=None):
     seqs = [enc.ids(it) for it in items]
     L = max(len(s) for s in seqs)
     ids = torch.zeros(len(seqs), L, dtype=torch.long)
@@ -313,18 +322,25 @@ def make_batch(enc, items, labels=None):
     if enc.scaler is not None:
         feats = torch.tensor(enc.scaler.transform(np.array([it["feats"] for it in items])), dtype=torch.float32)
     y = None if labels is None else torch.tensor(labels, dtype=torch.long)
+    if device is not None and device.type != "cpu":
+        ids = ids.to(device)
+        if feats is not None:
+            feats = feats.to(device)
+        if y is not None:
+            y = y.to(device)
     return ids, lengths, feats, y
 
 
 @torch.no_grad()
 def predict_proba(net, enc, items, batch=256):
     net.eval()
+    dev = next(net.parameters()).device
     out = []
     order = np.argsort([len(enc.ids(it)) for it in items])  # เรียงตามความยาวให้ pad น้อย
     for b in range(0, len(items), batch):
         idx = order[b:b + batch]
-        ids, lengths, feats, _ = make_batch(enc, [items[i] for i in idx])
-        out.append((idx, net(ids, lengths, feats).softmax(-1).numpy()))
+        ids, lengths, feats, _ = make_batch(enc, [items[i] for i in idx], device=dev)
+        out.append((idx, net(ids, lengths, feats).softmax(-1).cpu().numpy()))
     P = np.zeros((len(items), 6), dtype=np.float32)
     for idx, p in out:
         P[idx] = p
@@ -335,14 +351,15 @@ def predict_proba(net, enc, items, batch=256):
 def encode_items(net, enc, items, batch=256):
     """sentence vector (ก่อน layer สุดท้าย) + probability — ใช้กับ document level"""
     net.eval()
+    dev = next(net.parameters()).device
     V = np.zeros((len(items), net.out_dim), dtype=np.float32)
     P = np.zeros((len(items), 6), dtype=np.float32)
     for b in range(0, len(items), batch):
         chunk = items[b:b + batch]
-        ids, lengths, feats, _ = make_batch(enc, chunk)
+        ids, lengths, feats, _ = make_batch(enc, chunk, device=dev)
         v = net.encode(ids, lengths, feats)
-        V[b:b + len(chunk)] = v.numpy()
-        P[b:b + len(chunk)] = net.head(v).softmax(-1).numpy()
+        V[b:b + len(chunk)] = v.cpu().numpy()
+        P[b:b + len(chunk)] = net.head(v).softmax(-1).cpu().numpy()
     return V, P
 
 
@@ -353,8 +370,9 @@ def class_weights(y):
 
 
 def train_net(net, enc, tr_items, y_tr, dv_items, y_dv, epochs=15, lr=2e-3, batch=64, patience=4, name=""):
+    net.to(DEVICE)
     opt = torch.optim.AdamW(net.parameters(), lr=lr, weight_decay=1e-4)
-    loss_fn = nn.CrossEntropyLoss(weight=class_weights(np.array(y_tr)))
+    loss_fn = nn.CrossEntropyLoss(weight=class_weights(np.array(y_tr)).to(DEVICE))
     rng = np.random.default_rng(SEED)
     best, best_state, bad, history = -1e9, None, 0, []
     t0 = time.time()
@@ -364,7 +382,7 @@ def train_net(net, enc, tr_items, y_tr, dv_items, y_dv, epochs=15, lr=2e-3, batc
         total = 0.0
         for b in range(0, len(perm), batch):
             idx = perm[b:b + batch]
-            ids, lengths, feats, y = make_batch(enc, [tr_items[i] for i in idx], [y_tr[i] for i in idx])
+            ids, lengths, feats, y = make_batch(enc, [tr_items[i] for i in idx], [y_tr[i] for i in idx], device=DEVICE)
             loss = loss_fn(net(ids, lengths, feats), y)
             opt.zero_grad()
             loss.backward()
@@ -379,7 +397,7 @@ def train_net(net, enc, tr_items, y_tr, dv_items, y_dv, epochs=15, lr=2e-3, batc
         log(f"  [{name}] ep{ep:02d} loss={total / len(perm):.3f} dev_loss={dev_loss:.3f} "
             f"acc={m['accuracy']:.3f} f1={m['macro_f1']:.3f} qwk={m['qwk']:.3f}")
         if sel_score(m) > best:
-            best, best_state, bad = sel_score(m), copy.deepcopy(net.state_dict()), 0
+            best, best_state, bad = sel_score(m), {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}, 0
         else:
             bad += 1
             if bad >= patience:
@@ -395,7 +413,8 @@ def net_config(kind, vocab_size, n_feats):
 
 
 def save_net(path, net, enc, cfg):
-    torch.save({"state": net.state_dict(), "config": cfg, "encoder": enc.state()}, path)
+    state = {k: v.detach().cpu() for k, v in net.state_dict().items()}
+    torch.save({"state": state, "config": cfg, "encoder": enc.state()}, path)
 
 
 def load_net(path):
@@ -408,6 +427,28 @@ def load_net(path):
 
 def n_params(net):
     return int(sum(p.numel() for p in net.parameters()))
+
+
+def train_rf_tfidf(texts_tr, y_tr, texts_dv, y_dv, texts_te, y_te, max_feats=5000, n_estimators=200):
+    t0 = time.time()
+    pipe = Pipeline([
+        ("tfidf", TfidfVectorizer(ngram_range=(1, 2), max_features=max_feats, sublinear_tf=True)),
+        ("rf", RandomForestClassifier(n_estimators=n_estimators, max_depth=25, min_samples_leaf=2,
+                                      class_weight="balanced_subsample", n_jobs=-1, random_state=SEED)),
+    ])
+    pipe.fit(texts_tr, y_tr)
+    tt = time.time() - t0
+    t1 = time.time()
+    pred_te = pipe.predict(texts_te)
+    inf = (time.time() - t1) / max(1, len(texts_te)) * 1000
+    rf_est = pipe.named_steps["rf"]
+    return pipe, {
+        "dev": evaluate(y_dv, pipe.predict(texts_dv)),
+        "test": evaluate(y_te, pred_te),
+        "train_time": tt, "infer_ms": inf,
+        "params": int(sum(e.tree_.node_count for e in rf_est.estimators_)),
+        "n_tfidf_features": int(len(pipe.named_steps["tfidf"].vocabulary_)),
+    }
 
 
 # =============================================================================
@@ -546,6 +587,50 @@ def head_proba(head, X):
 # =============================================================================
 # [10] PREDICTOR — ใช้ใน app.py
 # =============================================================================
+def save_rf_bundle(bundle):
+    """แยกบันทึก RF เป็นหลายไฟล์ย่อย (< 45 MB/ไฟล์) เพื่อให้ push ขึ้น GitHub ได้โดยไม่ต้องใช้ Git LFS"""
+    legacy = os.path.join(ART, "rf_bundle.joblib")
+    if os.path.exists(legacy):
+        os.remove(legacy)
+    parts = {
+        "rf_sent.joblib": {"sent": bundle["sent"]},
+        "rf_doc.joblib": {
+            "doc": bundle["doc"],
+            "tfidf_sent": bundle["tfidf_sent"],
+            "tfidf_doc": bundle["tfidf_doc"],
+            "group_doc": bundle["group_doc"],
+            "group_cols_sent": bundle["group_cols_sent"],
+            "group_cols_doc": bundle["group_cols_doc"],
+        },
+    }
+    for g, est in bundle["group_sent"].items():
+        parts[f"rf_group_sent_{g}.joblib"] = est
+    sizes = {}
+    for fname, obj in parts.items():
+        p = os.path.join(ART, fname)
+        joblib.dump(obj, p, compress=3)
+        sizes[fname] = file_mb(p) or 0.0
+    return sizes
+
+
+def load_rf_bundle():
+    """โหลด RF จากไฟล์แยก (หรือ rf_bundle.joblib เดิมถ้ามี)"""
+    legacy = os.path.join(ART, "rf_bundle.joblib")
+    if os.path.exists(legacy):
+        return joblib.load(legacy)
+    bundle = {}
+    for fname in ("rf_sent.joblib", "rf_doc.joblib"):
+        p = os.path.join(ART, fname)
+        if os.path.exists(p):
+            bundle.update(joblib.load(p))
+    bundle["group_sent"] = {}
+    for g in nc.FEATURE_GROUPS:
+        p = os.path.join(ART, f"rf_group_sent_{g}.joblib")
+        if os.path.exists(p):
+            bundle["group_sent"][g] = joblib.load(p)
+    return bundle
+
+
 class CEFRPredictor:
     """โหลดโมเดลทั้งหมดจาก artifacts/ แล้วทำนายระดับประโยค / บทความ / breakdown"""
 
@@ -553,15 +638,29 @@ class CEFRPredictor:
         with open(os.path.join(ART, "metrics.json"), encoding="utf-8") as f:
             self.metrics = json.load(f)
         self.best = self.metrics["best"]
-        self.rf = joblib.load(os.path.join(ART, "rf_bundle.joblib"))
+        self.rf = load_rf_bundle()
         self.nets, self.heads = {}, {}
-        for name in ("bilstm", "bytelstm", "hybrid"):
-            self.nets[name] = load_net(os.path.join(ART, f"{name}.pt"))
-            self.heads[name] = joblib.load(os.path.join(ART, f"{name}_doc.joblib"))
+        for name in ("bilstm", "bytelstm", "hybrid", "bytehybrid"):
+            pt_path = os.path.join(ART, f"{name}.pt")
+            doc_path = os.path.join(ART, f"{name}_doc.joblib")
+            if os.path.exists(pt_path) and os.path.exists(doc_path):
+                self.nets[name] = load_net(pt_path)
+                self.heads[name] = joblib.load(doc_path)
+
+    def available_models(self):
+        out = ["rf"]
+        if "tfidf_sent" in self.rf and "tfidf_doc" in self.rf:
+            out.append("rf_tfidf")
+        for name in ("bilstm", "hybrid", "bytelstm", "bytehybrid"):
+            if name in self.nets:
+                out.append(name)
+        return out
 
     def sentence_proba(self, model, units):
         if model == "rf":
             return self.rf["sent"].predict_proba(np.array([u["feats"] for u in units]))
+        if model == "rf_tfidf":
+            return self.rf["tfidf_sent"].predict_proba([u["text"] for u in units])
         net, enc = self.nets[model]
         return predict_proba(net, enc, units)
 
@@ -569,6 +668,8 @@ class CEFRPredictor:
         d = {"sents": units, "doc_feats": doc_feats}
         if model == "rf":
             return self.rf["doc"].predict_proba(rf_doc_matrix(self.rf["sent"], [d]))[0]
+        if model == "rf_tfidf":
+            return self.rf["tfidf_doc"].predict_proba([" ".join(u["text"] for u in units)])[0]
         net, enc = self.nets[model]
         head = self.heads[model]
         X = pooled_doc_vectors(net, enc, [d], head.get("doc_scaler"))
@@ -615,6 +716,7 @@ def main():
     np.random.seed(SEED)
     torch.manual_seed(SEED)
     T0 = time.time()
+    log(f"device = {DEVICE}" + (f" ({torch.cuda.get_device_name(0)})" if DEVICE.type == "cuda" else ""))
     M = {"levels": nc.LEVELS, "model_names": MODEL_NAMES, "quick": quick,
          "created": time.strftime("%Y-%m-%d %H:%M:%S")}
 
@@ -655,11 +757,29 @@ def main():
     Xd = {k: rf_doc_matrix(rf, docs[k]) for k in docs}
     t0 = time.time()
     rf_doc, dparams = tune_rf(Xd["train"], yds["train"], Xd["dev"], yds["dev"], n_iter=2 if quick else 10)
+    tt_doc_rf = time.time() - t0
+    t1 = time.time()
+    pred_doc_te = rf_doc.predict(Xd["test"])
+    inf_doc_rf = (time.time() - t1) / len(Xd["test"]) * 1000
     doc_names = nc.DOC_FEATURE_NAMES + [f"sent_prob_{l}" for l in nc.LEVELS] + [f"sent_hist_{l}" for l in nc.LEVELS]
     doc_res["rf"] = {"dev": evaluate(yds["dev"], rf_doc.predict(Xd["dev"])),
-                     "test": evaluate(yds["test"], rf_doc.predict(Xd["test"])), "train_time": time.time() - t0,
+                     "test": evaluate(yds["test"], pred_doc_te), "train_time": tt_doc_rf,
+                     "infer_ms": inf_doc_rf,
                      "params": int(sum(e.tree_.node_count for e in rf_doc.estimators_)),
                      "feature_importance": importance_list(doc_names, rf_doc.feature_importances_)}
+
+    # ---------- [7b] RF (TF-IDF Only — ไม่มี Linguistic Features) ----------
+    log("SENTENCE & DOC: Random Forest (TF-IDF only)")
+    stexts = {k: sdf["text"].values[sp[k]] for k in sp}
+    dtexts = {k: ddf["text"].values[dsp[k]] for k in dsp}
+    rf_tfidf_sent, sent_res["rf_tfidf"] = train_rf_tfidf(
+        stexts["train"], y[sp["train"]], stexts["dev"], y[sp["dev"]], stexts["test"], y[sp["test"]],
+        max_feats=5000, n_estimators=150 if quick else 300,
+    )
+    rf_tfidf_doc, doc_res["rf_tfidf"] = train_rf_tfidf(
+        dtexts["train"], yds["train"], dtexts["dev"], yds["dev"], dtexts["test"], yds["test"],
+        max_feats=8000, n_estimators=150 if quick else 300,
+    )
 
     # breakdown RFs (Vocabulary / Verb form / Clause)
     log("BREAKDOWN: group RFs")
@@ -675,10 +795,13 @@ def main():
                                               n_jobs=-1, random_state=SEED).fit(Xdf["train"][:, gcd[g]], yds["train"])
         M["breakdown"][g] = {"sentence_test": evaluate(y[sp["test"]], group_sent[g].predict(Xs[sp["test"]][:, gcs[g]])),
                              "document_test": evaluate(yds["test"], group_doc[g].predict(Xdf["test"][:, gcd[g]]))}
-    rf_path = os.path.join(ART, "rf_bundle.joblib")
-    joblib.dump({"sent": rf, "doc": rf_doc, "group_sent": group_sent, "group_doc": group_doc,
-                 "group_cols_sent": gcs, "group_cols_doc": gcd}, rf_path, compress=3)
-    sent_res["rf"]["size_mb"] = doc_res["rf"]["size_mb"] = file_mb(rf_path)
+    rf_sizes = save_rf_bundle({
+        "sent": rf, "doc": rf_doc, "tfidf_sent": rf_tfidf_sent, "tfidf_doc": rf_tfidf_doc,
+        "group_sent": group_sent, "group_doc": group_doc,
+        "group_cols_sent": gcs, "group_cols_doc": gcd,
+    })
+    sent_res["rf"]["size_mb"] = rf_sizes["rf_sent.joblib"]
+    doc_res["rf"]["size_mb"] = doc_res["rf_tfidf"]["size_mb"] = sent_res["rf_tfidf"]["size_mb"] = rf_sizes["rf_doc.joblib"]
 
     # ---------- [4][5] Neural models ----------
     feat_scaler = StandardScaler().fit(Xs[sp["train"]])
@@ -713,25 +836,30 @@ def main():
     # Hybrid ใช้ input แบบที่ดีกว่าบน dev ระหว่าง raw กับ raw+NER mask
     hy_field = "ner" if sel_score(abl_lstm["ner"]["dev"]) > sel_score(abl_lstm["raw"]["dev"]) else "raw"
     sent_res["hybrid"] = run_neural("hybrid", "word", hy_field, True, 2e-3)
+    sent_res["bytehybrid"] = run_neural("bytehybrid", "byte", "raw", True, 3e-3)
     abl["lstm_input"] = {f: {"dev": abl_lstm[f]["dev"], "test": abl_lstm[f]["test"]} for f in abl_lstm}
     abl["hybrid_input"] = hy_field
 
     # ---------- [8] Document level (neural) ----------
     doc_scaler = StandardScaler().fit(Xdf["train"])
-    for key, tkey in (("bilstm", "bilstm_raw"), ("bytelstm", "bytelstm"), ("hybrid", "hybrid")):
+    for key, tkey in (("bilstm", "bilstm_raw"), ("bytelstm", "bytelstm"), ("hybrid", "hybrid"), ("bytehybrid", "bytehybrid")):
         log(f"DOCUMENT: {key}")
         net, enc, cfg = trained[tkey]
-        dsc = doc_scaler if key == "hybrid" else None
+        dsc = doc_scaler if key in ("hybrid", "bytehybrid") else None
         t0 = time.time()
         Xv = {k: pooled_doc_vectors(net, enc, docs[k], dsc) for k in docs}
         head = fit_doc_head(Xv["train"], yds["train"], Xv["dev"], yds["dev"])
         head["doc_scaler"] = dsc
+        tt_doc = time.time() - t0
         path = os.path.join(ART, f"{key}.pt")
         save_net(path, net, enc, cfg)
         joblib.dump(head, os.path.join(ART, f"{key}_doc.joblib"))
+        t1 = time.time()
+        P_te_doc = head_proba(head, Xv["test"])
+        inf_doc = (time.time() - t1) / max(1, len(Xv["test"])) * 1000
         doc_res[key] = {"dev": evaluate(yds["dev"], head_proba(head, Xv["dev"]).argmax(1)),
-                        "test": evaluate(yds["test"], head_proba(head, Xv["test"]).argmax(1)),
-                        "train_time": time.time() - t0, "params": n_params(net)}
+                        "test": evaluate(yds["test"], P_te_doc.argmax(1)),
+                        "train_time": tt_doc, "infer_ms": inf_doc, "params": n_params(net)}
         sent_res[key]["size_mb"] = doc_res[key]["size_mb"] = file_mb(path)
         log(f"  doc {key} test acc={doc_res[key]['test']['accuracy']:.3f} f1={doc_res[key]['test']['macro_f1']:.3f}")
 
@@ -759,6 +887,35 @@ def main():
 
     # ---------- best model (เลือกจาก dev) ----------
     M["sentence"], M["document"], M["ablation"] = sent_res, doc_res, abl
+    M["feature_comparison"] = {
+        "sentence": [
+            {"family": "Random Forest", "without": "rf_tfidf", "with": "rf",
+             "without_desc": "TF-IDF 1-2 grams (ไม่มีความรู้ภาษาศาสตร์)",
+             "with_desc": "65 Linguistic Features (Vocab, Tense, Clause, POS)"},
+            {"family": "Word BiLSTM", "without": "bilstm", "with": "hybrid",
+             "without_desc": "Raw Word Sequence + 300d GloVe",
+             "with_desc": f"Word BiLSTM ({hy_field}) + 65 Linguistic Features"},
+            {"family": "Byte-LSTM", "without": "bytelstm", "with": "bytehybrid",
+             "without_desc": "Raw UTF-8 Byte Sequence",
+             "with_desc": "Byte-LSTM + 65 Linguistic Features"},
+        ],
+        "document": [
+            {"family": "Random Forest", "without": "rf_tfidf", "with": "rf",
+             "without_desc": "TF-IDF 1-2 grams ทั้งบทความ",
+             "with_desc": "212 Doc Linguistic & Sentence Signals"},
+            {"family": "Word BiLSTM", "without": "bilstm", "with": "hybrid",
+             "without_desc": "Pooled Word BiLSTM vectors",
+             "with_desc": "Pooled BiLSTM + 200 Doc Linguistic Features"},
+            {"family": "Byte-LSTM", "without": "bytelstm", "with": "bytehybrid",
+             "without_desc": "Pooled Byte-LSTM vectors",
+             "with_desc": "Pooled Byte-LSTM + 200 Doc Linguistic Features"},
+        ],
+        "word": [
+            {"family": "Byte-LSTM", "without": "bytelstm", "with": "hybrid",
+             "without_desc": "Raw UTF-8 bytes ของคำ",
+             "with_desc": "Byte-LSTM + 41 Word Features"},
+        ],
+    }
     M["best"] = {"sentence": max(sent_res, key=lambda k: sel_score(sent_res[k]["dev"])),
                  "document": max(doc_res, key=lambda k: sel_score(doc_res[k]["dev"]))}
     M["selection_metric"] = "0.5 * macro_F1 + 0.5 * QWK บน dev set"

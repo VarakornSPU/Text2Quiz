@@ -82,6 +82,7 @@ def health():
         "status": "healthy",
         "models_ready": pred is not None,
         "best_model": pred.best if pred else None,
+        "available_models": pred.available_models() if pred else [],
     }
 
 
@@ -111,6 +112,11 @@ def analyze(req: AnalyzeRequest):
         raise HTTPException(
             status_code=400,
             detail=f"Unknown model '{req.model}'. Choose from: auto, {', '.join(mm.MODEL_NAMES)}",
+        )
+    if pred and selected_model not in pred.available_models():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Model '{selected_model}' is not trained yet. Run 'py -3.11 backend/ml_models.py' first.",
         )
 
     # คำนวณระดับบทความ / ประโยค
@@ -242,7 +248,8 @@ def compare_models(req: CompareRequest):
     doc_feats = du["doc_feats"]
 
     comparison = {}
-    for model_key, model_name in mm.MODEL_NAMES.items():
+    for model_key in pred.available_models():
+        model_name = mm.MODEL_NAMES.get(model_key, model_key)
         sent_probs = pred.sentence_proba(model_key, units)
         sent_scores = [nc.expected_score(p) for p in sent_probs]
         doc_p = pred.general_proba(model_key, units, doc_feats)

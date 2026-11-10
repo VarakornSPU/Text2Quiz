@@ -102,9 +102,16 @@ def analyze(req: AnalyzeRequest):
     pred = get_predictor()
 
     # เลือกโมเดล
-    selected_model = req.model
-    if selected_model == "auto" or not selected_model:
+    requested_model = (req.model or "auto").lower()
+    if requested_model == "auto":
         selected_model = pred.best["document"] if pred else "rf"
+    elif requested_model in mm.MODEL_NAMES:
+        selected_model = requested_model
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown model '{req.model}'. Choose from: auto, {', '.join(mm.MODEL_NAMES)}",
+        )
 
     # คำนวณระดับบทความ / ประโยค
     sentences_data = []
@@ -206,6 +213,8 @@ def analyze(req: AnalyzeRequest):
         "verb_forms": all_verb_forms,
         "entities": all_entities,
         "model_used": selected_model,
+        "model_name": mm.MODEL_NAMES.get(selected_model, selected_model),
+        "requested_model": requested_model,
         "stats": {
             "word_count": len([t for t in doc if t.is_alpha]),
             "sentence_count": len(units),
@@ -258,6 +267,116 @@ def compare_models(req: CompareRequest):
     return {"text": text, "comparison": comparison}
 
 
+def _feature_group_map(scope):
+    if scope == "sentence":
+        gmap = {}
+        for g, feats in nc.FEATURE_GROUPS.items():
+            for feat in feats:
+                gmap[feat] = g
+        return gmap
+    if scope == "document":
+        gmap = {}
+        for g, feats in nc.DOC_FEATURE_GROUPS.items():
+            for feat in feats:
+                gmap[feat] = g
+        for lvl in nc.LEVELS:
+            gmap[f"sent_prob_{lvl}"] = "sentence_model"
+            gmap[f"sent_hist_{lvl}"] = "sentence_model"
+        return gmap
+    gmap = {}
+    for name in nc.WORD_FEATURE_NAMES:
+        if name.startswith("suf_"):
+            gmap[name] = "suffixes"
+        elif name.startswith("pre_"):
+            gmap[name] = "prefixes"
+        else:
+            gmap[name] = "frequency_and_shape"
+    return gmap
+
+
+def _rank_features(names, importances, scope):
+    gmap = _feature_group_map(scope)
+    default_group = "other" if scope in ("sentence", "document") else "frequency_and_shape"
+    paired = sorted(
+        [
+            {
+                "name": n,
+                "importance": float(v),
+                "group": gmap.get(n, default_group),
+            }
+            for n, v in zip(names, importances)
+        ],
+        key=lambda d: -d["importance"],
+    )
+    for idx, item in enumerate(paired, 1):
+        item["rank"] = idx
+    return paired
+
+
+def _group_totals(ranked):
+    totals = {}
+    for item in ranked:
+        g = item["group"]
+        totals[g] = totals.get(g, 0.0) + item["importance"]
+    return totals
+
+
+def _enrich_metrics(data):
+    """แนบรายการฟีเจอร์ทั้งหมดและลำดับความสำคัญเต็ม (ไม่ใช่แค่ top 25) จากโมเดล RF"""
+    data["feature_specs"] = {
+        "sentence": {
+            "total_linguistic_features": len(nc.SENT_FEATURE_NAMES),
+            "groups": {
+                "vocabulary": nc.VOCAB_FEATS,
+                "verb_form": nc.VERB_FEATS,
+                "clause": nc.CLAUSE_FEATS,
+                "other": nc.OTHER_FEATS,
+            },
+        },
+        "document": {
+            "total_linguistic_features": len(nc.DOC_FEATURE_NAMES) + 12,
+            "base_doc_features": len(nc.DOC_FEATURE_NAMES),
+            "sent_signal_features": [f"sent_prob_{l}" for l in nc.LEVELS] + [f"sent_hist_{l}" for l in nc.LEVELS],
+            "extra_doc_features": nc.DOC_EXTRA,
+        },
+        "word": {
+            "total_linguistic_features": len(nc.WORD_FEATURE_NAMES),
+            "groups": {
+                "frequency_and_shape": ["zipf", "length", "syllables", "vowel_ratio", "has_hyphen"],
+                "suffixes": [f"suf_{s}" for s in nc.SUFFIXES],
+                "prefixes": [f"pre_{p}" for p in nc.PREFIXES],
+            },
+        },
+    }
+
+    try:
+        pred = get_predictor()
+        if pred and "rf" in data.get("sentence", {}):
+            sent_rf = pred.rf.get("sent")
+            if sent_rf is not None and len(sent_rf.feature_importances_) == len(nc.SENT_FEATURE_NAMES):
+                ranked_s = _rank_features(nc.SENT_FEATURE_NAMES, sent_rf.feature_importances_, "sentence")
+                data["sentence"]["rf"]["feature_importance_all"] = ranked_s
+                data["sentence"]["rf"]["group_importance"] = _group_totals(ranked_s)
+
+        if pred and "rf" in data.get("document", {}):
+            doc_rf = pred.rf.get("doc")
+            doc_names = nc.DOC_FEATURE_NAMES + [f"sent_prob_{l}" for l in nc.LEVELS] + [f"sent_hist_{l}" for l in nc.LEVELS]
+            if doc_rf is not None and len(doc_rf.feature_importances_) == len(doc_names):
+                ranked_d = _rank_features(doc_names, doc_rf.feature_importances_, "document")
+                data["document"]["rf"]["feature_importance_all"] = ranked_d
+                data["document"]["rf"]["group_importance"] = _group_totals(ranked_d)
+
+        word_rf = nc._load_word_model()
+        if word_rf is not None and "rf" in data.get("word", {}) and len(word_rf.feature_importances_) == len(nc.WORD_FEATURE_NAMES):
+            ranked_w = _rank_features(nc.WORD_FEATURE_NAMES, word_rf.feature_importances_, "word")
+            data["word"]["rf"]["feature_importance_all"] = ranked_w
+            data["word"]["rf"]["group_importance"] = _group_totals(ranked_w)
+    except Exception as exc:
+        print(f"Warning: Could not enrich full feature importances ({exc})")
+
+    return data
+
+
 @app.get("/api/metrics")
 def get_metrics():
     metrics_path = os.path.join(nc.ART_DIR, "metrics.json")
@@ -267,7 +386,7 @@ def get_metrics():
         )
     with open(metrics_path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    return data
+    return _enrich_metrics(data)
 
 
 @app.get("/api/level-profiles")

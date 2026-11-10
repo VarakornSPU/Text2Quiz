@@ -19,7 +19,16 @@ import {
   Award,
   ChevronRight,
   Send,
+  Cpu,
 } from 'lucide-react';
+
+const MODEL_OPTIONS = [
+  { id: 'auto', label: 'Auto (Best)', desc: 'เลือกโมเดลที่ดีที่สุดจาก dev set อัตโนมัติ' },
+  { id: 'rf', label: 'Random Forest', desc: 'ML ดั้งเดิม + 65/212 Linguistic Features' },
+  { id: 'bilstm', label: 'Word BiLSTM', desc: 'Deep Learning ลำดับคำ + GloVe 300d' },
+  { id: 'bytelstm', label: 'Byte-LSTM', desc: 'UTF-8 Bytes จับ Morphology ไม่มี OOV' },
+  { id: 'hybrid', label: 'Hybrid', desc: 'BiLSTM + Linguistic Features' },
+];
 
 const SAMPLE_TEXT = `Every time you're online, you are bombarded by pictures, articles, links and videos trying to tell their story. Unfortunately, not all of these stories are true. Sometimes they want you to click on another story or advertisement at their own site, other times they want to upset people for political reasons. These days it's so easy to share information. These stories circulate quickly, and the result is ... fake news.
 There is a range of fake news: from crazy stories which people easily recognise to more subtle types of misinformation. Experts in media studies and online psychology have been examining the fake news phenomenon. Read these tips, and don't get fooled!
@@ -27,8 +36,9 @@ There is a range of fake news: from crazy stories which people easily recognise 
 1. Check the source
 Look at the website where the story comes from. Does it look real? Is the text well written? Are there a variety of other stories or is it just one story? Fake news websites often use addresses that sound like real newspapers, but don't have many real stories about other topics. If you aren't sure, click on the 'About' page and look for a clear description of the organisation.`;
 
-export default function AnalyzeTab({ onAnalyze, analysis, loading }) {
+export default function AnalyzeTab({ onAnalyze, analysis, loading, bestModel }) {
   const [text, setText] = useState(SAMPLE_TEXT);
+  const [selectedModel, setSelectedModel] = useState('auto');
   const [colorMode, setColorMode] = useState('word'); // 'word' | 'sentence' | 'none'
   const [copied, setCopied] = useState(false);
 
@@ -52,6 +62,13 @@ export default function AnalyzeTab({ onAnalyze, analysis, loading }) {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleModelSelect = (modelId) => {
+    setSelectedModel(modelId);
+    if (analysis && text.trim()) {
+      onAnalyze(text, modelId);
+    }
   };
 
   const startQuiz = async () => {
@@ -133,14 +150,49 @@ export default function AnalyzeTab({ onAnalyze, analysis, loading }) {
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
+
+        {/* Model Selector Option */}
+        <div className="model-selector-bar">
+          <div className="model-selector-label">
+            <Cpu size={15} className="text-primary" />
+            <span>Model to Analyze (เลือกโมเดล):</span>
+          </div>
+          <div className="model-pills-group">
+            {MODEL_OPTIONS.map((m) => {
+              const isBestTag =
+                m.id === 'auto' && bestModel?.document
+                  ? ` (${bestModel.document.toUpperCase()})`
+                  : '';
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  disabled={loading}
+                  title={m.desc}
+                  className={`model-pill-btn ${selectedModel === m.id ? 'active' : ''}`}
+                  onClick={() => handleModelSelect(m.id)}
+                >
+                  {m.label}
+                  {isBestTag}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="input-actions">
           <span className="text-muted text-sm">
             {text.trim() ? text.trim().split(/\s+/).length : 0} words
+            {' · '}
+            Using:{' '}
+            <strong>
+              {MODEL_OPTIONS.find((m) => m.id === selectedModel)?.label || selectedModel}
+            </strong>
           </span>
           <button
             className="btn-primary"
             disabled={loading || !text.trim()}
-            onClick={() => onAnalyze(text)}
+            onClick={() => onAnalyze(text, selectedModel)}
           >
             {loading ? (
               <span className="spinner" />
@@ -171,12 +223,37 @@ export default function AnalyzeTab({ onAnalyze, analysis, loading }) {
                   <span className="info-icon" title="Overall CEFR proficiency level">ⓘ</span>
                 </div>
                 <div className="level-huge-label">
-                  <span className="level-letters">{analysis.general?.level || 'B1'}</span>
+                  <span className="level-letters">
+                    {(analysis.general?.label || 'B1.0').split('.')[0]}
+                  </span>
                   <span className="level-decimal">
-                    .{Math.round(((analysis.general?.score || 3.0) % 1) * 10)}
+                    .{(analysis.general?.label || 'B1.0').split('.')[1] ?? '0'}
                   </span>
                 </div>
-                <span className="model-tag">Model: {analysis.model_used?.toUpperCase()}</span>
+                <span className="model-tag" title={`Analyzed with ${analysis.model_name || analysis.model_used}`}>
+                  Model: {analysis.model_name || analysis.model_used?.toUpperCase()}
+                </span>
+                {analysis.general?.probabilities && (
+                  <div className="mini-prob-strip" title="Model confidence across A1–C2">
+                    {['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].map((lvl, idx) => {
+                      const pct = Math.round((analysis.general.probabilities[idx] || 0) * 100);
+                      return (
+                        <div key={lvl} className="mini-prob-col">
+                          <div className="mini-prob-bar-wrap">
+                            <div
+                              className="mini-prob-bar"
+                              style={{
+                                height: `${Math.max(4, pct)}%`,
+                                backgroundColor: CEFR_HEX[lvl],
+                              }}
+                            />
+                          </div>
+                          <span className="mini-prob-lbl">{lvl}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 

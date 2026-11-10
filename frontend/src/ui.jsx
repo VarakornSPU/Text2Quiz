@@ -26,7 +26,7 @@ export function getLevelColor(lvl) {
 }
 
 export function LevelBadge({ level, score, label, size = 'md' }) {
-  const display = label || (score ? `${level}.${Math.round((score % 1) * 10)}` : level);
+  const display = label || (score ? `${level}.${Math.floor((score % 1) * 10)}` : level);
   const colors = getLevelColor(level);
 
   const sizeClasses = {

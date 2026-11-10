@@ -15,6 +15,7 @@ export default function App() {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
   const [backendReady, setBackendReady] = useState(false);
+  const [bestModel, setBestModel] = useState(null);
 
   // Check health and run initial analysis on startup
   useEffect(() => {
@@ -22,6 +23,9 @@ export default function App() {
       .then((res) => res.json())
       .then((data) => {
         setBackendReady(true);
+        if (data.best_model) {
+          setBestModel(data.best_model);
+        }
       })
       .catch((err) => {
         console.warn('Backend not yet ready:', err);
@@ -95,6 +99,7 @@ export default function App() {
             onAnalyze={handleAnalyze}
             analysis={analysis}
             loading={loading}
+            bestModel={bestModel}
           />
         )}
 

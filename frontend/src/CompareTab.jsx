@@ -8,21 +8,17 @@ import {
   CartesianGrid,
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
-  LineChart,
-  Line,
   Legend,
 } from 'recharts';
 import {
   GitCompare,
   Cpu,
-  Layers,
   Sparkles,
   Zap,
   Info,
   Play,
   ListOrdered,
   Search,
-  TrendingUp,
 } from 'lucide-react';
 
 const GROUP_META = {
@@ -274,6 +270,7 @@ export default function CompareTab() {
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState('document'); // 'document' | 'sentence' | 'word'
+  const [evalSplit, setEvalSplit] = useState('test'); // 'test' | 'dev'
   const [liveText, setLiveText] = useState('Experts have been examining the fake news phenomenon.');
   const [liveResult, setLiveResult] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
@@ -335,7 +332,7 @@ export default function CompareTab() {
     rf_tfidf: 'Random Forest (TF-IDF Only)',
     rf: 'Random Forest (+Features)',
     bilstm: 'Word BiLSTM (Raw Only)',
-    hybrid: 'Word BiLSTM + Features (Hybrid)',
+    hybrid: scope === 'word' ? 'Byte-LSTM + Features (Hybrid)' : 'Word BiLSTM + Features (Hybrid)',
     bytelstm: 'Byte-LSTM (Bytes Only)',
     bytehybrid: 'Byte-LSTM + Features',
   };
@@ -443,30 +440,68 @@ export default function CompareTab() {
     'With Features (QWK)': Number((scopeData[p.with].test.qwk * 100).toFixed(1)),
   }));
 
-  // Build neural learning curve data (Dev QWK across epochs)
-  const historyEpochs = (() => {
-    const neuralModels = models.filter((m) => !m.startsWith('rf') && scopeData[m]?.history?.length);
-    if (!neuralModels.length) return [];
-    const maxEp = Math.max(...neuralModels.map((m) => scopeData[m].history.length));
-    const rows = [];
-    for (let ep = 1; ep <= maxEp; ep++) {
-      const row = { epoch: `Ep ${ep}` };
-      neuralModels.forEach((m) => {
-        const entry = scopeData[m].history.find((h) => h.epoch === ep);
-        if (entry) {
-          row[`${m}_qwk`] = Number((entry.dev_qwk * 100).toFixed(1));
-          row[`${m}_loss`] = Number(entry.dev_loss.toFixed(3));
-        }
-      });
-      rows.push(row);
-    }
-    return rows;
-  })();
-
   const fmtDelta = (a, b, isPercent = true) => {
     const diff = (b - a) * (isPercent ? 100 : 1);
     const sign = diff >= 0 ? '+' : '';
     return { text: `${sign}${diff.toFixed(1)}${isPercent ? '%' : ''}`, pos: diff >= 0 };
+  };
+
+  const macroMetric = (res, field) => {
+    const direct = res?.[`macro_${field}`];
+    if (typeof direct === 'number') return direct;
+    const present = (res?.per_class || []).filter((c) => (c.support || 0) > 0);
+    if (!present.length) return null;
+    return present.reduce((sum, c) => sum + (c[field] || 0), 0) / present.length;
+  };
+
+  const calcSelScore = (res) =>
+    res ? 0.5 * (res.macro_f1 || 0) + 0.5 * (res.qwk || 0) : -1;
+
+  const devBestModel =
+    metrics.best?.[scope] ||
+    models.reduce(
+      (best, m) => (calcSelScore(scopeData[m]?.dev) > calcSelScore(scopeData[best]?.dev) ? m : best),
+      models[0]
+    );
+
+  const testBestModel = models.reduce(
+    (best, m) => (calcSelScore(scopeData[m]?.test) > calcSelScore(scopeData[best]?.test) ? m : best),
+    models[0]
+  );
+
+  const renderModelBadges = (m) => {
+    const isDevBest = m === devBestModel;
+    const isTestBest = m === testBestModel;
+    if (isDevBest && isTestBest) {
+      return (
+        <span
+          className="best-pill"
+          title="ชนะเกณฑ์ Selection Score (0.5×Macro F1 + 0.5×QWK) ทั้งบน Dev Set และ Test Set"
+        >
+          BEST (Dev & Test)
+        </span>
+      );
+    }
+    return (
+      <>
+        {isDevBest && (
+          <span
+            className="best-pill"
+            title="ชนะเกณฑ์คัดเลือก Selection Score (0.5×Macro F1 + 0.5×QWK) บน Dev Set"
+          >
+            BEST (Dev)
+          </span>
+        )}
+        {isTestBest && (
+          <span
+            className="top-test-pill"
+            title="ชนะเกณฑ์ Selection Score (0.5×Macro F1 + 0.5×QWK) บน Test Set"
+          >
+            BEST (Test)
+          </span>
+        )}
+      </>
+    );
   };
 
   return (
@@ -495,7 +530,27 @@ export default function CompareTab() {
       </div>
 
       {/* 1. Main Benchmark Comparison Table */}
-      <Card title={`Performance Summary on Test Set (${scope.toUpperCase()} Level)`}>
+      <Card
+        title={`Performance Summary on ${evalSplit === 'test' ? 'Test' : 'Dev'} Set (${scope.toUpperCase()} Level)`}
+        badge={
+          <div className="flex gap-1 items-center">
+            <button
+              type="button"
+              className={`btn-pill text-xs ${evalSplit === 'test' ? 'active' : ''}`}
+              onClick={() => setEvalSplit('test')}
+            >
+              Test Set
+            </button>
+            <button
+              type="button"
+              className={`btn-pill text-xs ${evalSplit === 'dev' ? 'active' : ''}`}
+              onClick={() => setEvalSplit('dev')}
+            >
+              Dev Set
+            </button>
+          </div>
+        }
+      >
         <div className="table-responsive">
           <table className="compare-table">
             <thead>
@@ -504,25 +559,38 @@ export default function CompareTab() {
                 <th>Linguistic Features</th>
                 <th>Accuracy</th>
                 <th>Adjacent Acc (±1)</th>
+                <th>Precision</th>
+                <th>Recall</th>
                 <th>Macro F1</th>
                 <th>QWK (Kappa)</th>
                 <th>MAE</th>
+                <th title="Selection Score = 0.5 × Macro F1 + 0.5 × QWK บน Test Set">
+                  Test Sel.
+                </th>
+                <th title="Selection Score = 0.5 × Macro F1 + 0.5 × QWK บน Dev Set ที่ใช้คัดเลือกป้าย BEST (Dev)">
+                  Dev Sel.
+                </th>
                 <th>Inference (ms)</th>
-                <th>Size (MB)</th>
               </tr>
             </thead>
             <tbody>
               {models.map((m) => {
-                const res = scopeData[m]?.test;
+                const res = scopeData[m]?.[evalSplit];
+                const testRes = scopeData[m]?.test;
+                const devRes = scopeData[m]?.dev;
                 if (!res) return null;
-                const isBest = metrics.best?.[scope] === m;
+                const isRowBest = evalSplit === 'test' ? m === testBestModel : m === devBestModel;
                 const usesFeat = usesFeaturesMap[m];
+                const macroPrec = macroMetric(res, 'precision');
+                const macroRec = macroMetric(res, 'recall');
+                const testSel = calcSelScore(testRes);
+                const devSel = calcSelScore(devRes);
 
                 return (
-                  <tr key={m} className={isBest ? 'highlight-row' : ''}>
-                    <td className="font-bold flex items-center gap-2">
-                      {modelNames[m] || m}
-                      {isBest && <span className="best-pill">BEST</span>}
+                  <tr key={m} className={isRowBest ? 'highlight-row' : ''}>
+                    <td className="font-bold flex flex-wrap items-center gap-1.5">
+                      <span>{modelNames[m] || m}</span>
+                      {renderModelBadges(m)}
                     </td>
                     <td>
                       <span className={`feat-mode-pill ${usesFeat ? 'with-feat' : 'no-feat'}`}>
@@ -533,18 +601,38 @@ export default function CompareTab() {
                     <td className="font-semibold text-success">
                       {(res.adjacent_acc * 100).toFixed(1)}%
                     </td>
+                    <td>{macroPrec !== null ? `${(macroPrec * 100).toFixed(1)}%` : '-'}</td>
+                    <td>{macroRec !== null ? `${(macroRec * 100).toFixed(1)}%` : '-'}</td>
                     <td>{(res.macro_f1 * 100).toFixed(1)}%</td>
                     <td>{(res.qwk * 100).toFixed(1)}%</td>
                     <td>{res.mae?.toFixed(2)}</td>
+                    <td className={`font-mono ${m === testBestModel ? 'font-bold text-primary' : 'text-muted'}`}>
+                      {testSel >= 0 ? `${(testSel * 100).toFixed(2)}%` : '-'}
+                    </td>
+                    <td className={`font-mono ${m === devBestModel ? 'font-bold text-success' : 'text-muted'}`}>
+                      {devSel >= 0 ? `${(devSel * 100).toFixed(2)}%` : '-'}
+                    </td>
                     <td className="text-muted">
                       {scopeData[m]?.infer_ms !== undefined ? `${scopeData[m].infer_ms.toFixed(2)} ms` : '-'}
                     </td>
-                    <td className="text-muted">{scopeData[m]?.size_mb || '-'} MB</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+        </div>
+        <div className="text-xs text-muted mt-3 space-y-1">
+          <p>
+            <strong>เกณฑ์คัดเลือก BEST (Dev):</strong> โมเดลที่ได้ <code>Dev Sel. = 0.5 × Macro F1 + 0.5 × QWK</code> สูงสุดบน <strong>Dev Set</strong> (ใช้คัดเลือกโมเดลใช้งานจริงเพื่อป้องกัน Test Set Leakage)
+          </p>
+          <p>
+            <strong>เกณฑ์คัดเลือก BEST (Test):</strong> โมเดลที่ได้ <code>Test Sel. = 0.5 × Macro F1 + 0.5 × QWK</code> สูงสุดบน <strong>Test Set</strong> (แสดงประสิทธิภาพรวมที่ดีที่สุดบนชุดทดสอบจริง)
+          </p>
+          {scope === 'word' && (
+            <p>
+              <strong>หมายเหตุ WORD Level:</strong> แสดงเฉพาะ 3 โมเดลที่อ่านโครงสร้างภายในคำได้ (<code>Random Forest + 41 Word Features</code>, <code>Byte-LSTM</code>, <code>Byte-LSTM + Features</code>) เนื่องจากงานระดับคำใช้ทำนายคำนอกพจนานุกรม (Out-of-Vocabulary: OOV) ที่ไม่ซ้ำกับชุดฝึก โมเดลที่ต้องอิงคลังคำทั้งคำอย่าง <code>TF-IDF</code> และ <code>Word BiLSTM</code> จึงไม่สามารถอ่านตัวสะกดภายในคำใหม่ได้ (จะกลายเป็นค่าศูนย์หรือ <code>Unknown Token (&lt;unk&gt;)</code> ทั้งหมด)
+            </p>
+          )}
         </div>
       </Card>
 
@@ -640,13 +728,13 @@ export default function CompareTab() {
         </p>
         <div className={`grid ${modelFeatureSpecs.length === 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-4`}>
           {modelFeatureSpecs.map((spec) => {
-            const isBest = metrics.best?.[scope] === spec.key;
+            const isBest = spec.key === devBestModel;
             return (
               <div key={spec.key} className={`model-feature-card ${isBest ? 'best' : ''}`}>
                 <div className="flex justify-between items-center mb-2">
-                  <div className="font-bold text-sm flex items-center gap-2">
-                    {spec.name}
-                    {isBest && <span className="best-pill">BEST</span>}
+                  <div className="font-bold text-sm flex flex-wrap items-center gap-1.5">
+                    <span>{spec.name}</span>
+                    {renderModelBadges(spec.key)}
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className={`feat-mode-pill ${spec.usesFeatures ? 'with-feat' : 'no-feat'}`}>
@@ -879,167 +967,7 @@ export default function CompareTab() {
         </Card>
       </div>
 
-      {/* 5. Neural Learning Curves (when epoch history exists) */}
-      {historyEpochs.length > 0 && (
-        <Card
-          title={`Neural Training Curves (${scope.toUpperCase()} Level — Dev QWK %)`}
-          icon={<TrendingUp size={18} className="text-success" />}
-        >
-          <div style={{ height: 220 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={historyEpochs} margin={{ top: 10, right: 20, left: -15, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                <XAxis dataKey="epoch" />
-                <YAxis unit="%" />
-                <RechartsTooltip formatter={(v) => `${v}%`} />
-                <Legend />
-                {models.includes('bilstm') && scopeData.bilstm?.history?.length > 0 && (
-                  <Line type="monotone" dataKey="bilstm_qwk" name="Word BiLSTM (Raw) QWK" stroke="#3B82F6" strokeWidth={2} />
-                )}
-                {models.includes('bytelstm') && scopeData.bytelstm?.history?.length > 0 && (
-                  <Line type="monotone" dataKey="bytelstm_qwk" name="Byte-LSTM (Bytes) QWK" stroke="#10B981" strokeWidth={2} />
-                )}
-                {models.includes('hybrid') && scopeData.hybrid?.history?.length > 0 && (
-                  <Line type="monotone" dataKey="hybrid_qwk" name="Word BiLSTM +Feat QWK" stroke="#7C3AED" strokeWidth={2.5} />
-                )}
-                {models.includes('bytehybrid') && scopeData.bytehybrid?.history?.length > 0 && (
-                  <Line type="monotone" dataKey="bytehybrid_qwk" name="Byte-LSTM +Feat QWK" stroke="#EC4899" strokeWidth={2.5} />
-                )}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-      )}
-
-      {/* 6. Ablation Studies Section */}
-      {metrics.ablation && (
-        <Card
-          title="Ablation Experiments: Feature Groups, Lemma & Named Entities Impact"
-          icon={<Layers size={18} className="text-accent" />}
-        >
-          <div className="grid grid-cols-2 gap-6 mb-4">
-            <div>
-              <h4 className="font-bold text-sm mb-2">1. Word Lexicon Lookup: Lemma vs Surface Form</h4>
-              <p className="text-xs text-muted mb-3">
-                การ Lemma ก่อนเปิดตารางคำศัพท์ช่วยลด OOV (คำที่ไม่รู้จัก) ได้อย่างมีนัยสำคัญ
-              </p>
-              <table className="compare-table text-xs">
-                <thead>
-                  <tr>
-                    <th>Method</th>
-                    <th>Test Accuracy</th>
-                    <th>Macro F1</th>
-                    <th>OOV Rate (Test)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="font-semibold">With Lemmatization</td>
-                    <td className="text-success font-bold">
-                      {((metrics.ablation.rf_lookup?.lemma?.accuracy || 0) * 100).toFixed(1)}%
-                    </td>
-                    <td>{((metrics.ablation.rf_lookup?.lemma?.macro_f1 || 0) * 100).toFixed(1)}%</td>
-                    <td className="text-success font-bold">
-                      {((metrics.ablation.oov_rate?.lemma || 0) * 100).toFixed(1)}%
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Surface Form (No Lemma)</td>
-                    <td>{((metrics.ablation.rf_lookup?.surface?.accuracy || 0) * 100).toFixed(1)}%</td>
-                    <td>{((metrics.ablation.rf_lookup?.surface?.macro_f1 || 0) * 100).toFixed(1)}%</td>
-                    <td className="text-danger font-bold">
-                      {((metrics.ablation.oov_rate?.surface || 0) * 100).toFixed(1)}%
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div>
-              <h4 className="font-bold text-sm mb-2">2. BiLSTM Input: Raw vs Lemma vs NER Mask</h4>
-              <p className="text-xs text-muted mb-3">
-                โมเดล BiLSTM รับคำดิบ/NER-masked จะคง Tense Morphology ได้ดีกว่าการทำ Lemma ทั้งประโยค
-              </p>
-              <table className="compare-table text-xs">
-                <thead>
-                  <tr>
-                    <th>Input Format</th>
-                    <th>Test Accuracy</th>
-                    <th>Macro F1</th>
-                    <th>QWK</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {['raw', 'lemma', 'ner'].map((inp) => {
-                    const r = metrics.ablation.lstm_input?.[inp]?.test;
-                    if (!r) return null;
-                    return (
-                      <tr key={inp} className={inp === 'ner' ? 'highlight-row' : ''}>
-                        <td className="font-semibold">
-                          {inp === 'raw'
-                            ? 'Raw Tokens (Preserves Tense)'
-                            : inp === 'lemma'
-                            ? 'Lemmatized (Loses Tense)'
-                            : 'Raw + NER Masked'}
-                        </td>
-                        <td>{(r.accuracy * 100).toFixed(1)}%</td>
-                        <td>{(r.macro_f1 * 100).toFixed(1)}%</td>
-                        <td>{(r.qwk * 100).toFixed(1)}%</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* 3. Feature Group Ablation */}
-          {metrics.ablation.rf_groups && (
-            <div>
-              <h4 className="font-bold text-sm mb-2">3. Feature Group Ablation (ตัดทีละกลุ่มฟีเจอร์บน Random Forest)</h4>
-              <p className="text-xs text-muted mb-2">
-                ทดสอบตัดกลุ่มฟีเจอร์ออกทีละกลุ่มเพื่อพิสูจน์ว่าทั้ง Vocabulary, Verb Form/Tense และ Clause มีส่วนช่วยความแม่นยำจริง
-              </p>
-              <table className="compare-table text-xs">
-                <thead>
-                  <tr>
-                    <th>Feature Subset</th>
-                    <th>Test Accuracy</th>
-                    <th>Adjacent Acc (±1)</th>
-                    <th>Macro F1</th>
-                    <th>QWK</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    ['all', 'All 65 Features (Full Model)'],
-                    ['without_vocabulary', 'Without Vocabulary Features'],
-                    ['without_verb_form', 'Without Verb Form / Tense Features'],
-                    ['without_clause', 'Without Clause / Syntax Features'],
-                    ['only_vocabulary', 'Only Vocabulary Features'],
-                    ['only_verb_form', 'Only Verb Form / Tense Features'],
-                    ['only_clause', 'Only Clause / Syntax Features'],
-                  ].map(([k, label]) => {
-                    const row = metrics.ablation.rf_groups[k];
-                    if (!row) return null;
-                    return (
-                      <tr key={k} className={k === 'all' ? 'highlight-row' : ''}>
-                        <td className="font-semibold">{label}</td>
-                        <td>{(row.accuracy * 100).toFixed(1)}%</td>
-                        <td>{(row.adjacent_acc * 100).toFixed(1)}%</td>
-                        <td>{(row.macro_f1 * 100).toFixed(1)}%</td>
-                        <td>{(row.qwk * 100).toFixed(1)}%</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
-      )}
-
-      {/* 7. Live Side-by-Side Model Tester */}
+      {/* 5. Live Side-by-Side Model Tester */}
       <Card
         title="Live Side-by-Side Model Comparison"
         icon={<Sparkles size={18} className="text-primary" />}

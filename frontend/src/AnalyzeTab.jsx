@@ -234,33 +234,20 @@ export default function AnalyzeTab({ onAnalyze, analysis, loading, bestModel, av
                 <span className="model-tag" title={`Analyzed with ${analysis.model_name || analysis.model_used}`}>
                   Model: {analysis.model_name || analysis.model_used?.toUpperCase()}
                 </span>
-                {analysis.general?.probabilities && (
-                  <div className="mini-prob-strip" title="Model confidence across A1–C2">
-                    {['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].map((lvl, idx) => {
-                      const pct = Math.round((analysis.general.probabilities[idx] || 0) * 100);
-                      return (
-                        <div key={lvl} className="mini-prob-col">
-                          <div className="mini-prob-bar-wrap">
-                            <div
-                              className="mini-prob-bar"
-                              style={{
-                                height: `${Math.max(4, pct)}%`,
-                                backgroundColor: CEFR_HEX[lvl],
-                              }}
-                            />
-                          </div>
-                          <span className="mini-prob-lbl">{lvl}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
             </div>
 
             {/* Level Breakdown Card */}
             <div className="breakdown-card">
-              <div className="breakdown-title-main">Level breakdown</div>
+              <div className="breakdown-header-row">
+                <div className="breakdown-title-main">Level breakdown</div>
+                <span
+                  className="model-tag"
+                  title="คำนวณด้วย Random Forest ที่ฝึกแยกตามกลุ่มฟีเจอร์แต่ละด้านโดยเฉพาะ"
+                >
+                  Model: Random Forest (Feature-Group RFs)
+                </span>
+              </div>
               <div className="breakdown-items-list">
                 <LevelProgressBar
                   title="Vocabulary"
@@ -278,6 +265,9 @@ export default function AnalyzeTab({ onAnalyze, analysis, loading, bestModel, av
                   score={analysis.breakdown?.clause?.score}
                 />
               </div>
+              <p className="breakdown-model-note">
+                <strong>หมายเหตุ:</strong> ส่วนนี้ใช้ <strong>Random Forest แยกตามกลุ่มฟีเจอร์</strong> (Vocab / Verb form / Clause) เสมอ ไม่เปลี่ยนตามตัวเลือกโมเดลด้านบน เนื่องจากโมเดลอื่น (BiLSTM, Byte-LSTM, TF-IDF) อ่านข้อความรวมทั้งประโยค จึงไม่สามารถแยกประเมินคะแนนเฉพาะด้านทางไวยากรณ์ออกจากกันได้
+              </p>
             </div>
           </div>
 

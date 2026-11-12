@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, LevelBadge, CEFR_HEX, CEFR_COLORS } from './ui';
+import { Card, LevelBadge } from './ui';
 import {
   BarChart,
   Bar,
@@ -20,9 +20,7 @@ import {
   Tag,
   CheckCircle2,
   AlertCircle,
-  FileText,
   Filter,
-  Sparkles,
 } from 'lucide-react';
 
 const POS_COLORS = {
@@ -37,15 +35,11 @@ const POS_COLORS = {
   SCONJ: '#E11D48',
 };
 
-export default function VisualizeTab({ analysis }) {
-  const [viewMode, setViewMode] = useState('dataset'); // 'dataset' | 'text'
+export default function VisualizeTab() {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedLvl, setSelectedLvl] = useState('B1');
   const [activePosMetric, setActivePosMetric] = useState('ALL');
-
-  // Input text view states
-  const [selectedSentIdx, setSelectedSentIdx] = useState(0);
 
   useEffect(() => {
     fetch('/api/dataset-analytics')
@@ -78,7 +72,7 @@ export default function VisualizeTab({ analysis }) {
 
   return (
     <div className="visualize-container">
-      {/* Top Header & View Mode Switcher */}
+      {/* Top Header */}
       <div className="compare-header-row">
         <div>
           <h2 className="text-xl font-bold flex items-center gap-2">
@@ -88,27 +82,10 @@ export default function VisualizeTab({ analysis }) {
             การวิเคราะห์ข้อมูลทางภาษาจาก Dataset Project ML จริง (POS, Tense, Complexity & Lemmatization)
           </p>
         </div>
-        <div className="scope-tabs">
-          <button
-            className={`scope-tab-btn ${viewMode === 'dataset' ? 'active' : ''}`}
-            onClick={() => setViewMode('dataset')}
-          >
-            📊 Dataset Project ML
-          </button>
-          <button
-            className={`scope-tab-btn ${viewMode === 'text' ? 'active' : ''}`}
-            onClick={() => setViewMode('text')}
-          >
-            📝 Input Article Analysis
-          </button>
-        </div>
       </div>
 
-      {viewMode === 'dataset' ? (
-        /* =========================================================================
-           DATASET PROJECT ML VISUALIZATION DASHBOARD
-           ========================================================================= */
-        <div className="dataset-viz-view">
+      {/* DATASET PROJECT ML VISUALIZATION DASHBOARD */}
+      <div className="dataset-viz-view">
           {/* Overview Metric Cards */}
           <div className="grid grid-cols-4 gap-4 mb-4">
             <div className="app-card" style={{ padding: '16px' }}>
@@ -187,7 +164,7 @@ export default function VisualizeTab({ analysis }) {
                     <Bar dataKey="ADV" fill={POS_COLORS.ADV} name="Adverb (กริยาวิเศษณ์)" />
                   )}
                   {(activePosMetric === 'ALL' || activePosMetric === 'SCONJ') && (
-                    <Bar dataKey="SCONJ" fill={POS_COLORS.SCONJ} name="Subordinate Conj" />
+                    <Bar dataKey="SCONJ" fill={POS_COLORS.SCONJ} name="Subordinate Conj (คำสันธานเชื่อมอนุประโยค)" />
                   )}
                 </BarChart>
               </ResponsiveContainer>
@@ -228,7 +205,7 @@ export default function VisualizeTab({ analysis }) {
               icon={<Network size={18} className="text-success" />}
             >
               <p className="text-xs text-muted mb-3">
-                ความยาวประโยคเฉลี่ย (Word Count) และความลึกของ Dependency Tree ใน Dataset เพิ่มขึ้นตามระดับ CEFR
+                จำนวนคำเฉลี่ย, ความลึกโครงสร้างความสัมพันธ์ของคำ (Dependency Tree Depth) และจำนวนอนุประโยคต่อประโยค (Clauses / Sentence) เพิ่มขึ้นตามระดับ CEFR
               </p>
               <div style={{ height: 260 }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -249,7 +226,7 @@ export default function VisualizeTab({ analysis }) {
                     <Line
                       type="monotone"
                       dataKey="avg_depth"
-                      name="Dependency Tree Depth"
+                      name="Dependency Tree Depth (ความลึกโครงสร้างประโยค)"
                       stroke="#10B981"
                       strokeWidth={2.5}
                       dot={{ r: 4 }}
@@ -257,7 +234,7 @@ export default function VisualizeTab({ analysis }) {
                     <Line
                       type="monotone"
                       dataKey="avg_clauses"
-                      name="Clauses / Sentence"
+                      name="Clauses / Sentence (จำนวนอนุประโยคต่อประโยค)"
                       stroke="#F59E0B"
                       strokeWidth={2.5}
                       dot={{ r: 4 }}
@@ -366,99 +343,7 @@ export default function VisualizeTab({ analysis }) {
               ))}
             </div>
           </Card>
-        </div>
-      ) : (
-        /* =========================================================================
-           INPUT TEXT LINGUISTIC VISUALIZATION (ARTICLE SPECIFIC)
-           ========================================================================= */
-        <div className="text-viz-view">
-          {!analysis ? (
-            <div className="empty-box">
-              <Sparkles size={32} className="text-primary mb-2" />
-              <h3>No Article Analyzed Yet</h3>
-              <p className="text-muted text-sm">
-                Please enter an article in Tab 1 and click "Analyze CEFR Level" first.
-              </p>
-            </div>
-          ) : (
-            <Card
-              title={`Sentence Dependency Tree & Clause Map (Sentence ${selectedSentIdx + 1} of ${analysis.sentences?.length || 1})`}
-              icon={<Network size={18} className="text-accent" />}
-              badge={
-                <div className="flex gap-2">
-                  <button
-                    className="btn-ghost text-xs"
-                    disabled={selectedSentIdx === 0}
-                    onClick={() => setSelectedSentIdx(selectedSentIdx - 1)}
-                  >
-                    Previous
-                  </button>
-                  <span className="text-xs font-semibold py-1">
-                    Sentence {selectedSentIdx + 1}
-                  </span>
-                  <button
-                    className="btn-ghost text-xs"
-                    disabled={selectedSentIdx >= (analysis.sentences?.length || 1) - 1}
-                    onClick={() => setSelectedSentIdx(selectedSentIdx + 1)}
-                  >
-                    Next
-                  </button>
-                </div>
-              }
-            >
-              <p className="text-sm font-semibold mb-3 text-slate-700">
-                "{analysis.sentences?.[selectedSentIdx]?.text}"
-              </p>
-              <div className="svg-dep-wrapper">
-                <svg
-                  className="dep-svg"
-                  height="180"
-                  width={Math.max(700, (analysis.tokens?.filter((t) => t.sent === selectedSentIdx)?.length || 10) * 75 + 60)}
-                >
-                  <defs>
-                    <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-                      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748B" />
-                    </marker>
-                  </defs>
-                  {analysis.tokens?.filter((t) => t.sent === selectedSentIdx)?.map((t, idx, arr) => {
-                    const headTok = arr.find((st) => st.i === t.head);
-                    if (!headTok || headTok.i === t.i) return null;
-                    const headIdx = arr.indexOf(headTok);
-                    const x1 = idx * 75 + 40;
-                    const x2 = headIdx * 75 + 40;
-                    const dist = Math.abs(x2 - x1);
-                    const arcHeight = Math.min(100, 25 + dist * 0.25);
-                    const midX = (x1 + x2) / 2;
-                    const midY = 120 - arcHeight;
-                    return (
-                      <g key={t.i}>
-                        <path d={`M ${x1} 130 Q ${midX} ${midY} ${x2} 130`} fill="none" stroke="#94A3B8" strokeWidth="1.5" markerEnd="url(#arrow)" />
-                        <text x={midX} y={midY - 4} textAnchor="middle" fontSize="10" fill="#64748B" fontFamily="JetBrains Mono">
-                          {t.dep}
-                        </text>
-                      </g>
-                    );
-                  })}
-                  {analysis.tokens?.filter((t) => t.sent === selectedSentIdx)?.map((t, idx) => {
-                    const x = idx * 75 + 40;
-                    const isRoot = t.dep === 'ROOT';
-                    return (
-                      <g key={t.i} transform={`translate(${x}, 145)`}>
-                        <text textAnchor="middle" fontSize="12" fontWeight={isRoot ? '700' : '500'} fill={isRoot ? '#2563EB' : '#1E293B'}>
-                          {t.text}
-                        </text>
-                        <text y="16" textAnchor="middle" fontSize="10" fill={POS_COLORS[t.pos] || '#64748B'} fontFamily="JetBrains Mono">
-                          {t.pos}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </svg>
-              </div>
-            </Card>
-          )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }

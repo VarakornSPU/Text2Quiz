@@ -341,11 +341,29 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
+.breakdown-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
 .breakdown-title-main {
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--text-main);
-  margin-bottom: 16px;
+  margin-bottom: 0;
+}
+
+.breakdown-model-note {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-light);
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--text-muted);
 }
 
 .breakdown-items-list {
@@ -767,6 +785,17 @@ body {
   border-radius: 4px;
   background-color: var(--success);
   color: white;
+  white-space: nowrap;
+}
+
+.top-test-pill {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background-color: var(--primary);
+  color: white;
+  white-space: nowrap;
 }
 
 /* Confusion Matrix */

@@ -110,7 +110,7 @@ export default function App() {
 
         {activeTab === 'compare' && <CompareTab />}
 
-        {activeTab === 'visualize' && <VisualizeTab analysis={analysis} />}
+        {activeTab === 'visualize' && <VisualizeTab />}
       </main>
     </div>
   );

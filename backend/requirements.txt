@@ -1,11 +1,24 @@
-fastapi
-uvicorn
-spacy>=3.8.0
-torch
-scikit-learn
-pandas
-openpyxl
-joblib
-wordfreq
-lemminflect
+# Web Framework & API Server
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+pydantic>=2.6.0
 
+# Natural Language Processing & Linguistics
+spacy>=3.8.0
+lemminflect>=0.2.3
+wordfreq>=3.0.0
+langdetect>=1.0.9
+
+# Machine Learning & Deep Learning
+torch>=2.0.0
+scikit-learn>=1.4.0
+scipy>=1.12.0
+joblib>=1.3.0
+
+# Data Processing & Datasets
+numpy>=1.26.0
+pandas>=2.1.0
+openpyxl>=3.1.0
+
+# Note: After installing requirements, install the spaCy English model:
+# python -m spacy download en_core_web_sm

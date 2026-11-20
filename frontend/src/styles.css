@@ -178,6 +178,147 @@ body {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
+.article-input.input-error {
+  border-color: #EF4444;
+  background-color: #FFFDFD;
+}
+
+.article-input.input-error:focus {
+  border-color: #EF4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+.input-validation-warning {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background-color: #FEF2F2;
+  border: 1px solid #FECACA;
+  color: #DC2626;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-top: 8px;
+  animation: fadeIn 0.15s ease-in-out;
+}
+
+.warning-view-rules-btn {
+  background: transparent;
+  border: none;
+  color: #DC2626;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 2px 4px;
+}
+
+.warning-view-rules-btn:hover {
+  color: #991B1B;
+}
+
+/* Modern Inline Analysis Error Banner */
+.analysis-error-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  background-color: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  border-left: 4px solid #DC2626;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-top: 10px;
+  animation: slideDown 0.2s ease-out;
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.08);
+}
+
+.error-dismiss-btn {
+  background: transparent;
+  border: none;
+  color: #991B1B;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  transition: opacity 0.15s, background-color 0.15s;
+}
+
+.error-dismiss-btn:hover {
+  opacity: 1;
+  background-color: rgba(220, 38, 38, 0.1);
+}
+
+/* Global Floating Toast Error */
+.global-toast-error {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #1E293B;
+  color: #F87171;
+  border-left: 4px solid #EF4444;
+  padding: 12px 16px;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+  font-size: 0.875rem;
+  max-width: 460px;
+  animation: toastSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast-message {
+  color: #F1F5F9;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.toast-close-btn {
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+}
+
+.toast-close-btn:hover {
+  color: white;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toastSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .input-actions {
   display: flex;
   justify-content: space-between;
@@ -244,8 +385,68 @@ body {
   box-shadow: 0 2px 4px rgba(124, 58, 237, 0.2);
 }
 
-.btn-accent:hover {
+.btn-accent:hover:not(:disabled) {
   background-color: #6D28D9;
+}
+
+.btn-accent:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background-color: #94A3B8;
+  box-shadow: none;
+}
+
+.btn-pill:disabled,
+.btn-pill.disabled-pill {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background-color: #F1F5F9;
+  color: #94A3B8;
+  border-color: #E2E8F0;
+}
+
+/* Minimalist Quiz Criteria Status Strip */
+.quiz-criteria-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.725rem;
+  color: var(--text-muted);
+}
+
+.criteria-strip-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.criteria-strip-item.unlocked {
+  color: #334155;
+  font-weight: 500;
+}
+
+.criteria-strip-item.locked {
+  color: #94A3B8;
+}
+
+.criteria-strip-item .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.criteria-strip-item .dot.dot-active {
+  background-color: #10B981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.criteria-strip-item .dot.dot-muted {
+  background-color: #CBD5E1;
 }
 
 .btn-icon {
@@ -1054,62 +1255,221 @@ body {
   border: 1px dashed var(--border-color);
 }
 
-/* Model Selector Bar (AnalyzeTab) */
-.model-selector-bar {
+/* Fixed ML Pipeline Strip (AnalyzeTab) */
+.fixed-pipeline-strip {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  background-color: #F8FAFC;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 10px 14px;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: 12px;
+  background-color: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 9px;
+  padding: 8px 12px;
 }
 
-.model-selector-label {
+.pipeline-title-group {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--text-main);
 }
 
-.model-pills-group {
+.pipeline-title {
+  font-size: 0.775rem;
+  font-weight: 700;
+  color: #334155;
+  letter-spacing: -0.01em;
+}
+
+.pipeline-badges-group {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.model-pill-btn {
-  padding: 6px 12px;
-  border-radius: 9999px;
-  font-size: 0.78rem;
+.pipeline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  background-color: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  padding: 4px 9px;
+  color: #475569;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.pipeline-badge .badge-scope {
   font-weight: 600;
-  border: 1px solid var(--border-color);
-  background: white;
-  color: var(--text-muted);
+  color: #64748B;
+}
+
+.pipeline-badge .badge-model {
+  font-weight: 700;
+  color: #1E293B;
+}
+
+/* Input Rules Pill Button */
+.btn-rules-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  background-color: #F8FAFC;
+  border: 1px solid #CBD5E1;
+  padding: 4px 10px;
+  border-radius: 9999px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
-.model-pill-btn:hover:not(:disabled) {
-  border-color: var(--primary);
+.btn-rules-pill:hover {
+  background-color: #EEF2F6;
   color: var(--primary);
-}
-
-.model-pill-btn.active {
-  background-color: var(--primary);
   border-color: var(--primary);
-  color: white;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
 }
 
-.model-pill-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.btn-rules-pill.active {
+  background-color: #EEF2FF;
+  color: var(--primary);
+  border-color: #818CF8;
+  box-shadow: 0 1px 3px rgba(99, 102, 241, 0.15);
+}
+
+.rules-toggle-chevron {
+  font-size: 0.625rem;
+  opacity: 0.75;
+}
+
+/* Input Rules Drawer Panel */
+.input-rules-drawer {
+  background-color: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rules-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #EEF2F6;
+}
+
+.rules-close-btn {
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rules-close-btn:hover {
+  color: #1E293B;
+  background-color: #E2E8F0;
+}
+
+.rules-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 990px) {
+  .rules-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .rules-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rule-card {
+  background-color: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.rule-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.775rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.rule-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: #F1F5F9;
+  color: inherit;
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.rule-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.725rem;
+  line-height: 1.4;
+}
+
+.rule-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.rule-fail {
+  color: #DC2626;
+}
+
+.rule-fail .icon-cross {
+  font-weight: 800;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.rule-pass {
+  color: #059669;
+}
+
+.rule-pass .icon-check {
+  font-weight: 800;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 /* Mini probability strip inside General Level Card */

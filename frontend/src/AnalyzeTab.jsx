@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   CEFR_COLORS,
   CEFR_HEX,
@@ -20,17 +20,126 @@ import {
   ChevronRight,
   Send,
   Cpu,
+  AlertTriangle,
+  AlertCircle,
+  X,
+  Info,
 } from 'lucide-react';
 
-const MODEL_OPTIONS = [
-  { id: 'auto', label: 'Auto (Best)', desc: 'เลือกโมเดลที่ดีที่สุดจาก dev set อัตโนมัติ' },
-  { id: 'rf', label: 'RF (+Features)', desc: 'Random Forest + Linguistic Features (Vocab/Tense/Clause)' },
-  { id: 'rf_tfidf', label: 'RF (TF-IDF)', desc: 'Random Forest บนข้อความ TF-IDF ล้วน (ไม่ใช้ Linguistic Features)' },
-  { id: 'bilstm', label: 'Word BiLSTM (Raw)', desc: 'Word BiLSTM อ่านคำดิบล้วน (ไม่ใช้ Linguistic Features)' },
-  { id: 'hybrid', label: 'Word BiLSTM +Feat', desc: 'Word BiLSTM + Linguistic Features (Hybrid)' },
-  { id: 'bytelstm', label: 'Byte-LSTM (Bytes)', desc: 'Byte-LSTM อ่านรหัสตัวอักษรล้วน (ไม่ใช้ Linguistic Features)' },
-  { id: 'bytehybrid', label: 'Byte-LSTM +Feat', desc: 'Byte-LSTM + Linguistic Features' },
-];
+/**
+ * รายการคำศัพท์ภาษาอังกฤษพื้นฐานและคำไวยากรณ์ที่พบบ่อย (Common English Vocabulary & Function Words):
+ * ใช้ตรวจจับข้อความสั้น (3-12 คำ) ว่ามีคำภาษาอังกฤษจริงอย่างน้อย 1 คำหรือไม่ เพื่อดักจับการพิมพ์ตัวอักษรมั่ว
+ */
+const COMMON_ENGLISH_WORDS = new Set([
+  'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i', 'it', 'for', 'not', 'on', 'with',
+  'he', 'as', 'you', 'do', 'at', 'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she',
+  'or', 'an', 'will', 'my', 'one', 'all', 'would', 'there', 'their', 'what', 'so', 'up', 'out', 'if',
+  'about', 'who', 'get', 'which', 'go', 'me', 'when', 'make', 'can', 'like', 'time', 'no', 'just',
+  'him', 'know', 'take', 'people', 'into', 'year', 'your', 'good', 'some', 'could', 'them', 'see',
+  'other', 'than', 'then', 'now', 'look', 'only', 'come', 'its', 'over', 'think', 'also', 'back',
+  'after', 'use', 'two', 'how', 'our', 'work', 'first', 'well', 'way', 'even', 'new', 'want',
+  'because', 'any', 'these', 'give', 'day', 'most', 'us', 'is', 'are', 'was', 'were', 'been',
+  'has', 'had', 'am', 'check', 'read', 'tell', 'help', 'click', 'fake', 'news', 'story', 'stories',
+  'source', 'website', 'real', 'written', 'variety', 'topics', 'page', 'description', 'sure', 'sound',
+  'online', 'pictures', 'articles', 'links', 'videos', 'true', 'site', 'upset', 'easy', 'share',
+  'information', 'circulate', 'quickly', 'range', 'crazy', 'recognise', 'recognize', 'subtle',
+  'types', 'misinformation', 'experts', 'media', 'studies', 'psychology', 'examining', 'phenomenon',
+  'tips', 'fooled', 'where', 'comes', 'does', 'sound', 'many', 'about', 'clear', 'organisation'
+]);
+
+/**
+ * นับคำภาษาอังกฤษจริง (Genuine English words):
+ * ไม่นับเครื่องหมายวรรคตอนเดี่ยวๆ (... , ! ?), ตัวเลขโดดๆ (123) หรือการเคาะเว้นวรรคเปล่า
+ * รองรับคำที่มี apostrophe หรือ hyphen เช่น don't, it's, state-of-the-art
+ */
+export function countEnglishWords(str) {
+  if (!str || !str.trim()) return 0;
+  const matches = str.match(/\b[a-zA-Z]+(?:['’-][a-zA-Z]+)*\b/g);
+  return matches ? matches.length : 0;
+}
+
+/**
+ * ตรวจสอบความถูกต้องของข้อความก่อนส่งวิเคราะห์:
+ * - ป้องกันภาษาอื่นนอกจากภาษาอังกฤษ เช่น ภาษาไทย, CJK, อาหรับ
+ * - ป้องกันการพิมพ์ตัวอักษรซ้ำผิดปกติ (เช่น ddddddddddddd)
+ * - ป้องกันคำที่ยาวผิดปกติ (> 28 ตัวอักษร)
+ * - ตรวจจับคำศัพท์ที่รู้จักในข้อความสั้น
+ * - ต้องการคำภาษาอังกฤษอย่างน้อย 3 คำเพื่อประเมินระดับ CEFR
+ */
+export function validateInputText(text) {
+  const trimmed = (text || '').trim();
+  if (!trimmed) {
+    return { valid: false, message: null, words: 0, hasNonLatin: false };
+  }
+
+  const words = countEnglishWords(trimmed);
+
+  // ตรวจจับอักษรภาษาไทย
+  const hasThai = /[\u0E00-\u0E7F]/.test(trimmed);
+  if (hasThai) {
+    return {
+      valid: false,
+      hasNonLatin: true,
+      message: 'ตรวจพบภาษาไทย: ระบบรองรับเฉพาะข้อความภาษาอังกฤษเท่านั้น (English text only)',
+      words,
+    };
+  }
+
+  // ตรวจจับอักษรภาษาอื่นที่ไม่ใช่ละติน (จีน, ญี่ปุ่น, เกาหลี, อาหรับ, ซีริลลิก ฯลฯ)
+  const hasOtherNonLatin = /[\u0400-\u04FF\u0600-\u06FF\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]/.test(trimmed);
+  if (hasOtherNonLatin) {
+    return {
+      valid: false,
+      hasNonLatin: true,
+      message: 'ตรวจพบอักษรภาษาอื่น: ระบบรองรับเฉพาะข้อความภาษาอังกฤษเท่านั้น (English text only)',
+      words,
+    };
+  }
+
+  // ตรวจจับการพิมพ์ตัวอักษรซ้ำผิดปกติ เช่น ddddddddddddddd
+  if (/(.)\1{3,}/.test(trimmed)) {
+    return {
+      valid: false,
+      hasNonLatin: false,
+      message: 'ตรวจพบการพิมพ์ตัวอักษรซ้ำผิดปกติ กรุณาป้อนข้อความภาษาอังกฤษที่มีความหมาย',
+      words,
+    };
+  }
+
+  if (words < 3) {
+    return {
+      valid: false,
+      hasNonLatin: false,
+      message: `กรุณาป้อนข้อความภาษาอังกฤษอย่างน้อย 3 คำขึ้นไป (ปัจจุบันพบ ${words} คำ)`,
+      words,
+    };
+  }
+
+  // สำหรับข้อความสั้น (3-12 คำ): ต้องมีคำศัพท์ภาษาอังกฤษที่รู้จักอย่างน้อย 1 คำ
+  const tokenList = trimmed.match(/\b[a-zA-Z]+(?:['’-][a-zA-Z]+)*\b/g) || [];
+  if (words < 12) {
+    const hasCommonWord = tokenList.some((w) => COMMON_ENGLISH_WORDS.has(w.toLowerCase()));
+    if (!hasCommonWord) {
+      return {
+        valid: false,
+        hasNonLatin: false,
+        message: 'ไม่พบคำศัพท์ภาษาอังกฤษที่รู้จักในข้อความ กรุณาป้อนประโยคภาษาอังกฤษที่มีความหมาย',
+        words,
+      };
+    }
+  }
+
+  return { valid: true, message: null, words, hasNonLatin: false };
+}
+
+const FIXED_PIPELINE = {
+  docModel: 'rf',
+  docLabel: 'RF + Features',
+  sentenceModel: 'bytehybrid',
+  sentenceLabel: 'Byte-LSTM + Features',
+  wordModel: 'bytehybrid',
+  wordLabel: 'Byte-LSTM + Features',
+};
 
 const SAMPLE_TEXT = `Every time you're online, you are bombarded by pictures, articles, links and videos trying to tell their story. Unfortunately, not all of these stories are true. Sometimes they want you to click on another story or advertisement at their own site, other times they want to upset people for political reasons. These days it's so easy to share information. These stories circulate quickly, and the result is ... fake news.
 There is a range of fake news: from crazy stories which people easily recognise to more subtle types of misinformation. Experts in media studies and online psychology have been examining the fake news phenomenon. Read these tips, and don't get fooled!
@@ -38,11 +147,23 @@ There is a range of fake news: from crazy stories which people easily recognise 
 1. Check the source
 Look at the website where the story comes from. Does it look real? Is the text well written? Are there a variety of other stories or is it just one story? Fake news websites often use addresses that sound like real newspapers, but don't have many real stories about other topics. If you aren't sure, click on the 'About' page and look for a clear description of the organisation.`;
 
-export default function AnalyzeTab({ onAnalyze, analysis, loading, bestModel, availableModels }) {
+export default function AnalyzeTab({
+  onAnalyze,
+  analysis,
+  loading,
+  bestModel,
+  availableModels,
+  analysisError,
+  onClearError,
+}) {
   const [text, setText] = useState(SAMPLE_TEXT);
-  const [selectedModel, setSelectedModel] = useState('auto');
   const [colorMode, setColorMode] = useState('word'); // 'word' | 'sentence' | 'none'
   const [copied, setCopied] = useState(false);
+  const [quizError, setQuizError] = useState(null);
+  const [showRules, setShowRules] = useState(false);
+
+  // ตรวจสอบความถูกต้องของข้อความและนับคำภาษาอังกฤษจริง
+  const validation = useMemo(() => validateInputText(text), [text]);
 
   // Quiz states
   const [showQuizConfig, setShowQuizConfig] = useState(false);
@@ -60,23 +181,40 @@ export default function AnalyzeTab({ onAnalyze, analysis, loading, bestModel, av
     structure: true,
   });
 
+  // เกณฑ์ความยาวบทความสำหรับการสร้างควิซ
+  const wordCount = validation.words;
+  const quizEligible = wordCount >= 35;
+  const maxPossibleQ = wordCount >= 100 ? 10 : wordCount >= 80 ? 8 : wordCount >= 55 ? 6 : 4;
+
+  // ปรับจำนวนข้อให้อยู่ในเกณฑ์ที่ความยาวบทความรองรับได้เสมอ
+  React.useEffect(() => {
+    if (quizEligible && numQ > maxPossibleQ) {
+      setNumQ(maxPossibleQ);
+    }
+  }, [quizEligible, maxPossibleQ, numQ]);
+
+  const handleTextChange = (newText) => {
+    setText(newText);
+    if (analysisError && onClearError) {
+      onClearError();
+    }
+  };
+
   const handleCopy = () => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleModelSelect = (modelId) => {
-    setSelectedModel(modelId);
-    if (analysis && text.trim()) {
-      onAnalyze(text, modelId);
-    }
-  };
-
   const startQuiz = async () => {
     setQuizLoading(true);
+    setQuizError(null);
     try {
       const activeTypes = Object.keys(quizTypes).filter((k) => quizTypes[k]);
+      if (activeTypes.length === 0) {
+        throw new Error('กรุณาเลือกประเภทคำถามอย่างน้อย 1 หมวดหมู่');
+      }
+
       const res = await fetch('/api/quiz/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -87,13 +225,24 @@ export default function AnalyzeTab({ onAnalyze, analysis, loading, bestModel, av
           level: analysis?.general?.level || null,
         }),
       });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Error generating quiz');
+      }
+
       const data = await res.json();
+      if (!data.questions || data.questions.length === 0) {
+        throw new Error('ไม่พบคำถามที่สามารถสร้างได้จากบทความนี้ กรุณาเพิ่มความยาวบทความ');
+      }
+
       setQuizData(data);
       setUserAnswers({});
       setQuizResult(null);
       setShowQuizConfig(false);
+      setQuizError(null);
     } catch (err) {
-      alert('Error generating quiz: ' + err.message);
+      setQuizError(err.message);
     } finally {
       setQuizLoading(false);
     }
@@ -127,17 +276,27 @@ export default function AnalyzeTab({ onAnalyze, analysis, loading, bestModel, av
         title="Input Article / Text"
         icon={<BookOpen size={20} className="text-primary" />}
         badge={
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <button
+              type="button"
+              className={`btn-rules-pill ${showRules ? 'active' : ''}`}
+              onClick={() => setShowRules(!showRules)}
+              title="ดูข้อกำหนดและกฎทั้งหมดของข้อความที่ไม่สามารถวิเคราะห์ได้"
+            >
+              <HelpCircle size={14} />
+              <span>กฎข้อความ</span>
+              <span className="rules-toggle-chevron">{showRules ? '▲' : '▼'}</span>
+            </button>
             <button
               className="btn-ghost"
-              onClick={() => setText(SAMPLE_TEXT)}
+              onClick={() => handleTextChange(SAMPLE_TEXT)}
               title="Load sample article"
             >
               Load Sample
             </button>
             <button
               className="btn-ghost"
-              onClick={() => setText('')}
+              onClick={() => handleTextChange('')}
               title="Clear text"
             >
               Clear
@@ -145,61 +304,189 @@ export default function AnalyzeTab({ onAnalyze, analysis, loading, bestModel, av
           </div>
         }
       >
+        {/* Input Rules & Restrictions Drawer Panel */}
+        {showRules && (
+          <div className="input-rules-drawer">
+            <div className="rules-drawer-header">
+              <div className="flex items-center gap-2">
+                <Info size={16} className="text-primary" />
+                <strong className="text-sm text-slate-800">
+                  เกณฑ์และข้อกำหนดของข้อความ (Input Requirements & Restrictions)
+                </strong>
+              </div>
+              <button
+                type="button"
+                className="rules-close-btn"
+                onClick={() => setShowRules(false)}
+                title="ปิดคำแนะนำ"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="rules-cards-grid">
+              {/* 1. Language Rule */}
+              <div className="rule-card">
+                <div className="rule-card-title text-indigo-700">
+                  <span className="rule-num">1</span>
+                  <span>ภาษาที่รองรับ (Language)</span>
+                </div>
+                <ul className="rule-list">
+                  <li className="rule-fail">
+                    <span className="icon-cross">✕</span>
+                    <span>ห้ามภาษาไทย หรือภาษาอื่น (จีน, ญี่ปุ่น, เกาหลี, อาหรับ, รัสเซีย ฯลฯ)</span>
+                  </li>
+                  <li className="rule-fail">
+                    <span className="icon-cross">✕</span>
+                    <span>ห้ามบทความภาษาอื่นที่ใช้อักษรละตินเด่นชัด (เช่น ฝรั่งเศส, สเปน, เยอรมัน)</span>
+                  </li>
+                  <li className="rule-pass">
+                    <span className="icon-check">✓</span>
+                    <span>รองรับภาษาอังกฤษทุกระดับ (รวมคำยืมทั่วไป เช่น <em>café, résumé, cliché</em>)</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* 2. Word Count Rule */}
+              <div className="rule-card">
+                <div className="rule-card-title text-emerald-700">
+                  <span className="rule-num">2</span>
+                  <span>ความยาวข้อความ (Word Count)</span>
+                </div>
+                <ul className="rule-list">
+                  <li className="rule-fail">
+                    <span className="icon-cross">✕</span>
+                    <span>ห้ามข้อความว่างเปล่า หรือสั้นกว่า <strong>3 คำ</strong></span>
+                  </li>
+                  <li className="rule-pass">
+                    <span className="icon-check">✓</span>
+                    <span><strong>วิเคราะห์ CEFR</strong>: ต้องการอย่างน้อย <strong>3 คำขึ้นไป</strong></span>
+                  </li>
+                  <li className="rule-pass">
+                    <span className="icon-check">✓</span>
+                    <span><strong>สร้างควิซ (Quiz)</strong>: ต้องการอย่างน้อย <strong>35 คำขึ้นไป</strong> (เกณฑ์ 35/55/80/100 คำ)</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* 3. Text Quality & Anti-Spam */}
+              <div className="rule-card">
+                <div className="rule-card-title text-amber-700">
+                  <span className="rule-num">3</span>
+                  <span>คุณภาพคำศัพท์ (Anti-Spam)</span>
+                </div>
+                <ul className="rule-list">
+                  <li className="rule-fail">
+                    <span className="icon-cross">✕</span>
+                    <span>ห้ามพิมพ์ตัวอักษรเดิมซ้ำกันผิดปกติ (เช่น <code>dddddddd</code>, <code>aaaaaa</code>)</span>
+                  </li>
+                  <li className="rule-fail">
+                    <span className="icon-cross">✕</span>
+                    <span>ห้ามพิมพ์แป้นพิมพ์มั่วที่ไม่มีคำศัพท์จริง (เช่น <code>asdf jkl; qwer</code>)</span>
+                  </li>
+                  <li className="rule-pass">
+                    <span className="icon-check">✓</span>
+                    <span>คำศัพท์เฉพาะทางยาวๆ ที่มีอยู่จริง (เช่น <em>Pneumonoultramicroscopicsilicovolcanoconiosis</em>) วิเคราะห์ได้ปกติ</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
         <textarea
-          className="article-input"
+          className={`article-input ${!validation.valid && text.trim() && validation.hasNonLatin ? 'input-error' : ''}`}
           rows={6}
           placeholder="Paste English article here to analyze CEFR level and generate quiz..."
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => handleTextChange(e.target.value)}
         />
 
-        {/* Model Selector Option */}
-        <div className="model-selector-bar">
-          <div className="model-selector-label">
-            <Cpu size={15} className="text-primary" />
-            <span>Model to Analyze (เลือกโมเดล):</span>
+        {!validation.valid && text.trim() && (
+          <div className="input-validation-warning">
+            <div className="flex items-center gap-2 flex-grow">
+              <AlertTriangle size={16} className="flex-shrink-0" />
+              <span>{validation.message}</span>
+            </div>
+            <button
+              type="button"
+              className="warning-view-rules-btn"
+              onClick={() => setShowRules(true)}
+              title="เปิดดูกฎและข้อกำหนดทั้งหมด"
+            >
+              ดูกฎทั้งหมด ➔
+            </button>
           </div>
-          <div className="model-pills-group">
-            {MODEL_OPTIONS.map((m) => {
-              const isBestTag =
-                m.id === 'auto' && bestModel?.document
-                  ? ` (${bestModel.document.toUpperCase()})`
-                  : '';
-              const isReady =
-                m.id === 'auto' ||
-                !availableModels ||
-                availableModels.length === 0 ||
-                availableModels.includes(m.id);
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  disabled={loading || !isReady}
-                  title={isReady ? m.desc : `${m.desc} — ต้องรัน ml_models.py ใหม่ก่อนใช้งาน`}
-                  className={`model-pill-btn ${selectedModel === m.id ? 'active' : ''}`}
-                  onClick={() => handleModelSelect(m.id)}
-                >
-                  {m.label}
-                  {isBestTag}
-                </button>
-              );
-            })}
+        )}
+
+        {/* Backend Analysis Error Banner (แทน window.alert) */}
+        {analysisError && (
+          <div className="analysis-error-banner">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle size={18} className="text-danger flex-shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-danger block text-sm">การวิเคราะห์ไม่สำเร็จ</strong>
+                <span className="text-xs text-slate-700 leading-relaxed">{analysisError}</span>
+              </div>
+            </div>
+            {onClearError && (
+              <button
+                type="button"
+                className="error-dismiss-btn"
+                onClick={onClearError}
+                title="ปิดการแจ้งเตือน"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Fixed Active ML Pipeline Bar */}
+        <div className="fixed-pipeline-strip">
+          <div className="pipeline-title-group">
+            <Cpu size={14} className="text-primary flex-shrink-0" />
+            <span className="pipeline-title">ML Pipeline:</span>
+          </div>
+          <div className="pipeline-badges-group">
+            <span
+              className="pipeline-badge"
+              title="ระดับบทความ: Random Forest + Linguistic Features (ความแม่นยำสูงสุด 66.7%, QWK 0.934)"
+            >
+              <span className="badge-scope">Document:</span>
+              <span className="badge-model">RF + Features</span>
+            </span>
+            <span
+              className="pipeline-badge"
+              title="ระดับประโยค: Byte-LSTM + Linguistic Features (Adjacent Accuracy 96.4%, QWK 0.749)"
+            >
+              <span className="badge-scope">Sentence:</span>
+              <span className="badge-model">Byte-LSTM + Features</span>
+            </span>
+            <span
+              className="pipeline-badge"
+              title="ระดับคำศัพท์ (OOV): Byte-LSTM + 41 Word Features"
+            >
+              <span className="badge-scope">Word:</span>
+              <span className="badge-model">Byte-LSTM + Features</span>
+            </span>
           </div>
         </div>
 
         <div className="input-actions">
           <span className="text-muted text-sm">
-            {text.trim() ? text.trim().split(/\s+/).length : 0} words
-            {' · '}
-            Using:{' '}
-            <strong>
-              {MODEL_OPTIONS.find((m) => m.id === selectedModel)?.label || selectedModel}
-            </strong>
+            <strong className="text-slate-800">{validation.words}</strong>{' '}
+            {validation.words === 1 ? 'word' : 'words'}
           </span>
           <button
             className="btn-primary"
-            disabled={loading || !text.trim()}
-            onClick={() => onAnalyze(text, selectedModel)}
+            disabled={loading || !validation.valid}
+            title={
+              !validation.valid
+                ? validation.message || 'กรุณาป้อนข้อความภาษาอังกฤษ'
+                : 'วิเคราะห์ระดับ CEFR'
+            }
+            onClick={() => onAnalyze(text, FIXED_PIPELINE)}
           >
             {loading ? (
               <span className="spinner" />
@@ -231,8 +518,11 @@ export default function AnalyzeTab({ onAnalyze, analysis, loading, bestModel, av
                     .{(analysis.general?.label || 'B1.0').split('.')[1] ?? '0'}
                   </span>
                 </div>
-                <span className="model-tag" title={`Analyzed with ${analysis.model_name || analysis.model_used}`}>
-                  Model: {analysis.model_name || analysis.model_used?.toUpperCase()}
+                <span
+                  className="model-tag"
+                  title={`Analyzed with ${analysis.models_used?.document?.name || analysis.model_name || analysis.model_used}`}
+                >
+                  Model: {analysis.models_used?.document?.label || analysis.model_name || analysis.model_used?.toUpperCase()}
                 </span>
               </div>
             </div>
@@ -313,7 +603,12 @@ export default function AnalyzeTab({ onAnalyze, analysis, loading, bestModel, av
                       key={idx}
                       content={
                         <div className="tooltip-inner">
-                          <div><strong>Sentence {idx + 1}</strong>: {s.label}</div>
+                          <div>
+                            <strong>Sentence {idx + 1}</strong>: {s.label}{' '}
+                            <span className="text-muted text-xs">
+                              ({analysis.models_used?.sentence?.label || 'Byte-LSTM + Feat'})
+                            </span>
+                          </div>
                           <div>Clauses: {s.n_clauses} (Depth: {s.depth})</div>
                           <div>Vocab: {s.breakdown?.vocabulary?.label} | Tense: {s.breakdown?.verb_form?.label}</div>
                         </div>
@@ -374,7 +669,14 @@ export default function AnalyzeTab({ onAnalyze, analysis, loading, bestModel, av
                           <div className="font-bold">{tok.text}</div>
                           <div>Lemma: {tok.lemma}</div>
                           <div>POS: {tok.pos} ({tok.tag})</div>
-                          <div>Level: <strong>{tok.level}</strong> ({tok.source})</div>
+                          <div>
+                            Level: <strong>{tok.level}</strong>{' '}
+                            <span className="text-muted text-xs">
+                              ({tok.source === 'model'
+                                ? `model: ${tok.model_name || analysis.models_used?.word?.label || 'Byte-LSTM + Feat'}`
+                                : tok.source})
+                            </span>
+                          </div>
                           {tok.morph && <div className="text-xs text-muted">{tok.morph}</div>}
                         </div>
                       }
@@ -401,41 +703,131 @@ export default function AnalyzeTab({ onAnalyze, analysis, loading, bestModel, av
             {/* Quiz Generation Trigger Banner */}
             <div className="quiz-trigger-bar">
               <div className="quiz-trigger-info">
-                <Award size={22} className="text-primary" />
+                <Award size={22} className={quizEligible ? 'text-primary' : 'text-muted'} />
                 <div>
-                  <h4 className="font-bold">Generate Quiz from this Article</h4>
+                  <h4 className="font-bold flex items-center gap-2">
+                    <span>Generate Quiz from this Article</span>
+                    {!quizEligible && (
+                      <span
+                        className="badge-tag text-xs"
+                        style={{
+                          backgroundColor: '#FEF3C7',
+                          color: '#B45309',
+                          borderColor: '#FDE68A',
+                        }}
+                      >
+                        ต้องการ 35 คำขึ้นไป (ปัจจุบัน {wordCount} คำ)
+                      </span>
+                    )}
+                  </h4>
                   <p className="text-sm text-muted">
-                    Interactive quiz with vocabulary cloze, verb tenses, and sentence structure with Thai explanations
+                    {quizEligible
+                      ? 'Interactive quiz with vocabulary cloze, verb tenses, and sentence structure with Thai explanations'
+                      : `บทความสั้นเกินไปสำหรับสร้างชุดควิซ (พบ ${wordCount} คำ) ต้องการอย่างน้อย 35 คำขึ้นไป (ประมาณ 3 ประโยค) เพื่อให้มีเนื้อหาเพียงพอสำหรับออกข้อสอบ`}
                   </p>
                 </div>
               </div>
               <button
                 className="btn-accent"
+                disabled={!quizEligible}
+                title={
+                  !quizEligible
+                    ? `บทความต้องมีความยาวอย่างน้อย 35 คำขึ้นไป (ปัจจุบันพบ ${wordCount} คำ)`
+                    : 'Configure & Generate Quiz'
+                }
                 onClick={() => setShowQuizConfig(!showQuizConfig)}
               >
                 <Sliders size={16} /> Configure & Generate Quiz
               </button>
             </div>
 
+            {/* Quiz Error Banner */}
+            {quizError && (
+              <div className="analysis-error-banner mt-3 mb-2">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle size={18} className="text-danger flex-shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="text-danger block text-sm">ไม่สามารถสร้างควิซได้</strong>
+                    <span className="text-xs text-slate-700 leading-relaxed">{quizError}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="error-dismiss-btn"
+                  onClick={() => setQuizError(null)}
+                  title="ปิดการแจ้งเตือน"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            )}
+
             {/* Quiz Config Modal / Drawer */}
-            {showQuizConfig && (
+            {showQuizConfig && quizEligible && (
               <div className="quiz-config-card">
                 <h4 className="font-bold mb-3 flex items-center gap-2">
                   <Sliders size={18} /> Quiz Configuration
                 </h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="label-block">Number of Questions</label>
-                    <div className="flex gap-2">
-                      {[4, 6, 8, 10].map((n) => (
-                        <button
-                          key={n}
-                          className={`btn-pill ${numQ === n ? 'active' : ''}`}
-                          onClick={() => setNumQ(n)}
-                        >
-                          {n} Questions
-                        </button>
-                      ))}
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="label-block mb-0">Number of Questions</label>
+                      <span className="text-xs text-muted">
+                        บทความยาว <strong>{wordCount}</strong> คำ
+                      </span>
+                    </div>
+
+                    {/* Question Buttons - Clean and Simple */}
+                    <div className="flex gap-2 mb-2">
+                      {[4, 6, 8, 10].map((n) => {
+                        const isAllowed = n <= maxPossibleQ;
+                        const reqWords = n === 4 ? 35 : n === 6 ? 55 : n === 8 ? 80 : 100;
+                        return (
+                          <button
+                            key={n}
+                            type="button"
+                            disabled={!isAllowed}
+                            title={
+                              !isAllowed
+                                ? `ต้องการบทความอย่างน้อย ${reqWords} คำขึ้นไป (ปัจจุบันพบ ${wordCount} คำ)`
+                                : `สร้างควิซ ${n} ข้อ`
+                            }
+                            className={`btn-pill flex-1 py-1.5 text-xs font-semibold ${
+                              numQ === n ? 'active' : ''
+                            } ${!isAllowed ? 'disabled-pill' : ''}`}
+                            onClick={() => setNumQ(n)}
+                          >
+                            {n} Questions
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Clean Minimalist Criteria Status Bar */}
+                    <div className="quiz-criteria-strip">
+                      <div className="flex items-center gap-1.5 text-slate-500 font-medium">
+                        <Info size={12} className="text-primary flex-shrink-0" />
+                        <span>เกณฑ์คำ:</span>
+                      </div>
+                      {[
+                        { q: 4, min: 35 },
+                        { q: 6, min: 55 },
+                        { q: 8, min: 80 },
+                        { q: 10, min: 100 },
+                      ].map((t) => {
+                        const isMet = wordCount >= t.min;
+                        return (
+                          <div
+                            key={t.q}
+                            className={`criteria-strip-item ${isMet ? 'unlocked' : 'locked'}`}
+                          >
+                            <span className={`dot ${isMet ? 'dot-active' : 'dot-muted'}`} />
+                            <span>
+                              {t.q} ข้อ (≥{t.min})
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                   <div>

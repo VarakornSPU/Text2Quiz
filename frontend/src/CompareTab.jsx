@@ -19,6 +19,7 @@ import {
   Play,
   ListOrdered,
   Search,
+  AlertTriangle,
 } from 'lucide-react';
 
 const GROUP_META = {
@@ -975,23 +976,31 @@ export default function CompareTab() {
         <p className="text-sm text-muted mb-3">
           ทดสอบใส่ประโยคหรือย่อหน้าใดๆ เพื่อดูการประเมิน CEFR แบบสดๆ พร้อม Probability Distribution ของทั้ง 4 โมเดล
         </p>
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 mb-2">
           <input
             type="text"
-            className="article-input"
+            className={`article-input ${liveText.trim() && /[\u0E00-\u0E7F]/.test(liveText) ? 'input-error' : ''}`}
             style={{ height: '42px' }}
-            placeholder="Type any sentence to compare all 4 models..."
+            placeholder="Type any English sentence to compare models (e.g. She had left before we arrived)..."
             value={liveText}
             onChange={(e) => setLiveText(e.target.value)}
           />
           <button
             className="btn-primary"
-            disabled={liveLoading || !liveText.trim()}
+            disabled={liveLoading || !liveText.trim() || /[\u0E00-\u0E7F]/.test(liveText)}
+            title={/[\u0E00-\u0E7F]/.test(liveText) ? 'รองรับเฉพาะข้อความภาษาอังกฤษ' : 'Compare models'}
             onClick={handleLiveTest}
           >
             {liveLoading ? <span className="spinner" /> : <Play size={16} />} Compare
           </button>
         </div>
+
+        {liveText.trim() && /[\u0E00-\u0E7F]/.test(liveText) && (
+          <div className="input-validation-warning mb-4">
+            <AlertTriangle size={15} />
+            <span>ตรวจพบภาษาไทย: ช่องเปรียบเทียบนี้รองรับเฉพาะข้อความภาษาอังกฤษเท่านั้น (English text only)</span>
+          </div>
+        )}
 
         {liveResult && (
           <div className="grid grid-cols-4 gap-4">

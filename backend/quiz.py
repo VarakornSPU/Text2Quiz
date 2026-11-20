@@ -16,6 +16,7 @@ import json
 from collections import defaultdict
 
 import lemminflect
+from fastapi import HTTPException
 import nlp_core as nc
 
 # In-memory store สำหรับเก็บ session ควิซ (คำถาม + เฉลย)
@@ -369,6 +370,11 @@ def generate_quiz(text, num_questions=10, types=None, level=None):
         q_pool.extend(generate_structure_questions(doc, max_q=num_questions))
 
     random.shuffle(q_pool)
+    if not q_pool:
+        raise HTTPException(
+            status_code=400,
+            detail="ไม่สามารถสร้างคำถามจากบทความนี้ได้เนื่องจากไม่พบองค์ประกอบไวยากรณ์ตามหมวดหมู่ที่เลือก กรุณาเลือกหมวดหมู่อื่นเพิ่มเติมหรือเพิ่มความยาวบทความ",
+        )
     selected_questions = q_pool[:num_questions]
 
     # บันทึกเฉลยไว้ใน memory

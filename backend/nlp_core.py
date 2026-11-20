@@ -125,38 +125,87 @@ def word_feature_vector(word):
 
 
 # word model (RF) ถูก train ใน ml_models.py แล้ว set เข้ามาที่นี่
+_WORD_MODELS = {}
 _WORD_MODEL = {"model": None}
 _OOV_CACHE = {}
 
 
-def set_word_model(model):
+def set_word_model(model, key="rf"):
     _WORD_MODEL["model"] = model
+    _WORD_MODELS[key] = ("rf", model)
     _OOV_CACHE.clear()
 
 
-def _load_word_model():
-    if _WORD_MODEL["model"] is None:
+def _load_word_model(model_key="bytehybrid"):
+    key = "hybrid" if model_key in ("bytehybrid", "hybrid") else model_key
+    if key in _WORD_MODELS:
+        return _WORD_MODELS[key]
+
+    if key == "rf":
         path = os.path.join(ART_DIR, "word_rf.joblib")
         if os.path.exists(path):
             import joblib
-            _WORD_MODEL["model"] = joblib.load(path)
-    return _WORD_MODEL["model"]
+            m = joblib.load(path)
+            _WORD_MODELS[key] = ("rf", m)
+            _WORD_MODEL["model"] = m
+            return _WORD_MODELS[key]
+    elif key in ("hybrid", "bytelstm"):
+        path = os.path.join(ART_DIR, f"word_{key}.pt")
+        if os.path.exists(path):
+            try:
+                import ml_models as mm
+                net, enc = mm.load_net(path)
+                _WORD_MODELS[key] = ("net", net, enc, key)
+                return _WORD_MODELS[key]
+            except Exception as e:
+                print(f"[nlp_core] Failed to load word model '{key}': {e}")
+
+    # Fallback to rf
+    if _WORD_MODEL.get("model") is not None:
+        _WORD_MODELS["rf"] = ("rf", _WORD_MODEL["model"])
+        return _WORD_MODELS["rf"]
+    path = os.path.join(ART_DIR, "word_rf.joblib")
+    if os.path.exists(path):
+        import joblib
+        m = joblib.load(path)
+        _WORD_MODELS["rf"] = ("rf", m)
+        _WORD_MODEL["model"] = m
+        return _WORD_MODELS["rf"]
+    return None
 
 
-def _predict_oov(words):
+def _predict_oov(words, word_model="bytehybrid"):
     """ทำนายระดับคำที่ไม่อยู่ใน wordlist แบบ batch (เร็วกว่าทีละคำมาก) แล้ว cache ไว้"""
-    todo = [w for w in set(words) if w not in _OOV_CACHE]
+    m_key = "hybrid" if word_model in ("bytehybrid", "hybrid") else word_model
+    todo = [w for w in set(words) if (w, m_key) not in _OOV_CACHE and w not in _OOV_CACHE]
     if not todo:
         return
-    model = _load_word_model()
-    if model is None:  # fallback ก่อน train: ใช้ความถี่คำ
+    m_info = _load_word_model(m_key)
+    if m_info is None:  # fallback ก่อน train: ใช้ความถี่คำ
         for w in todo:
             z = zipf_frequency(w, "en")
-            _OOV_CACHE[w] = int(np.clip(round(7.5 - z), 1, 6))
+            val = int(np.clip(round(7.5 - z), 1, 6))
+            _OOV_CACHE[(w, m_key)] = val
+            _OOV_CACHE[w] = val
         return
-    X = np.array([word_feature_vector(w) for w in todo])
-    for w, p in zip(todo, model.predict(X)):
-        _OOV_CACHE[w] = int(p) + 1
+
+    if m_info[0] == "rf":
+        _, model = m_info
+        X = np.array([word_feature_vector(w) for w in todo])
+        for w, p in zip(todo, model.predict(X)):
+            val = int(p) + 1
+            _OOV_CACHE[(w, m_key)] = val
+            _OOV_CACHE[w] = val
+    elif m_info[0] == "net":
+        _, net, enc, key_name = m_info
+        import ml_models as mm
+        use_feats = key_name == "hybrid"
+        items = [{"text": w, "feats": list(word_feature_vector(w)) if use_feats else []} for w in todo]
+        probs = mm.predict_proba(net, enc, items)
+        for w, p in zip(todo, probs.argmax(1)):
+            val = int(p) + 1
+            _OOV_CACHE[(w, m_key)] = val
+            _OOV_CACHE[w] = val
 
 
 def is_name_token(tok):
@@ -171,10 +220,11 @@ def is_name_token(tok):
     return tok.pos_ == "PROPN" or tok.ent_type_ in NAME_ENTS
 
 
-def token_levels(tokens, use_lemma=True):
+def token_levels(tokens, use_lemma=True, word_model="bytehybrid"):
     """คืน list ของ (level 1..6 หรือ None, source) ต่อ token
     source: 'wordlist' | 'model' (OOV) | 'none' (ไม่มีระดับ: ชื่อเฉพาะ, ตัวเลข, เครื่องหมาย)
     use_lemma=False ใช้สำหรับการทดลอง ablation (lookup ด้วยรูปคำเดิม)"""
+    m_key = "hybrid" if word_model in ("bytehybrid", "hybrid") else word_model
     lex = get_lexicon()
     out, oov = [], []
     for tok in tokens:
@@ -194,8 +244,16 @@ def token_levels(tokens, use_lemma=True):
             out.append((None, "model:" + key))
             oov.append(key)
     if oov:
-        _predict_oov(oov)
-        out = [(_OOV_CACHE[s[6:]], "model") if s.startswith("model:") else (l, s) for l, s in out]
+        _predict_oov(oov, word_model=m_key)
+        out = [
+            (
+                _OOV_CACHE.get((s[6:], m_key), _OOV_CACHE.get(s[6:], 3)),
+                "model",
+            )
+            if s.startswith("model:")
+            else (l, s)
+            for l, s in out
+        ]
     return out
 
 
@@ -614,17 +672,20 @@ def score_label(s):
 # =============================================================================
 # [7] TOKEN SERIALIZATION (JSON สำหรับ frontend)
 # =============================================================================
-def serialize_tokens(doc, sent_ids, levels_by_token):
+def serialize_tokens(doc, sent_ids, levels_by_token, word_model_name=None):
     out = []
     for t in doc:
         lv, src = levels_by_token.get(t.i, (None, "none"))
-        out.append({
+        tok_data = {
             "i": t.i, "text": t.text, "ws": t.whitespace_, "lemma": t.lemma_, "pos": t.pos_, "tag": t.tag_,
             "dep": t.dep_, "head": t.head.i, "morph": str(t.morph), "ent": t.ent_type_, "ent_iob": t.ent_iob_,
             "level": LEVELS[lv - 1] if lv else None, "level_num": lv, "source": src,
             "sent": sent_ids.get(t.i, -1), "is_punct": t.is_punct, "is_space": t.is_space,
             "is_name": is_name_token(t), "idx": t.idx,
-        })
+        }
+        if src == "model" and word_model_name:
+            tok_data["model_name"] = word_model_name
+        out.append(tok_data)
     return out
 
 

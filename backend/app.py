@@ -11,12 +11,15 @@ Endpoints:
 """
 import os
 import sys
+import re
 import json
 from typing import Optional, List, Dict, Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import langdetect
+from wordfreq import zipf_frequency
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import nlp_core as nc
@@ -48,12 +51,141 @@ def get_predictor():
     return _PREDICTOR
 
 
+def is_latin(c: str) -> bool:
+    """เช็กตัวอักษรละติน (รวม Basic Latin, Latin-1 Supplement, Latin Extended A/B สำหรับคำยืม เช่น é, à, ü, ñ, ç)"""
+    return (
+        ("A" <= c <= "Z")
+        or ("a" <= c <= "z")
+        or ("\u00C0" <= c <= "\u024F")
+        or ("\u1E00" <= c <= "\u1EFF")
+    )
+
+
+def validate_english_input(text: str, min_words: int = 3):
+    """ตรวจสอบความถูกต้องของข้อความก่อนส่งให้โมเดล ML:
+    1. ต้องไม่ว่างเปล่า
+    2. ต้องเป็นตัวอักษรภาษาอังกฤษ/ละตินเป็นหลัก (รวมอักษรละตินที่มีเครื่องหมาย เช่น é, à, ü, ñ, ç)
+    3. กรองภาษาไทยออกหากมีสัดส่วนเกิน 15% หรือเกิน 6 ตัวอักษร
+    4. ต้องมีจำนวนคำภาษาอังกฤษจริง (is_alpha) อย่างน้อย min_words คำ
+    5. มีเกณฑ์คำศัพท์ภาษาอังกฤษที่รู้จักเพื่อป้องกันการพิมพ์แป้นพิมพ์มั่ว (>= 18%)
+    6. หากเป็นบทความยาว (>= 8 คำ) และ langdetect ตรวจพบภาษาอื่นเป็นภาษาหลักเด่นชัด (> 75% และ en < 25%) จึงจะแจ้งเตือน
+       (รองรับบทความภาษาอังกฤษที่มีคำยืม, โควทต่างชาติ หรือชื่อเฉพาะได้อย่างราบรื่น)
+    """
+    text = (text or "").strip()
+    if not text:
+        raise HTTPException(
+            status_code=400,
+            detail="ข้อความว่างเปล่า กรุณาป้อนข้อความภาษาอังกฤษ (Text cannot be empty)",
+        )
+
+    # 1. ตรวจสอบอักขระตัวอักษรทั้งหมด
+    alphas = [c for c in text if c.isalpha()]
+    if not alphas:
+        raise HTTPException(
+            status_code=400,
+            detail="ไม่พบคำศัพท์ภาษาอังกฤษ กรุณาป้อนข้อความภาษาอังกฤษ (No alphabetic words found)",
+        )
+
+    # ตรวจจับภาษาไทยหากมีเกินเกณฑ์ที่ยอมรับได้
+    thai_chars = [c for c in text if "\u0E00" <= c <= "\u0E7F"]
+    if len(thai_chars) > 0 and (
+        len(thai_chars) / len(alphas) > 0.15 or len(thai_chars) >= 6
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="ตรวจพบข้อความภาษาไทย: ระบบรองรับเฉพาะข้อความภาษาอังกฤษเท่านั้น (English text only)",
+        )
+
+    # อนุญาตอักษรละติน (รวม Latin-Extended สำหรับคำยืมเช่น café, résumé, naïve, cliché)
+    latin_alphas = [c for c in alphas if is_latin(c)]
+    if len(latin_alphas) / len(alphas) < 0.70:
+        raise HTTPException(
+            status_code=400,
+            detail="ตรวจพบภาษาอื่นที่ไม่ใช่อักษรละติน/อังกฤษ: ระบบรองรับเฉพาะข้อความภาษาอังกฤษเท่านั้น (Non-English script detected)",
+        )
+
+    # 2. Parse ด้วย spaCy และนับคำภาษาอังกฤษจริง
+    doc = nc.parse(text)
+    words = [t for t in doc if t.is_alpha and any(is_latin(c) for c in t.text)]
+    if len(words) < min_words:
+        raise HTTPException(
+            status_code=400,
+            detail=f"กรุณาป้อนข้อความภาษาอังกฤษอย่างน้อย {min_words} คำ (พบคำภาษาอังกฤษเพียง {len(words)} คำ)",
+        )
+
+    # 3. ตรวจจับการพิมพ์ตัวอักษรซ้ำผิดปกติ (เช่น ddddddddddddddd)
+    if any(re.search(r"(.)\1{3,}", w.text.lower()) for w in words):
+        raise HTTPException(
+            status_code=400,
+            detail="ตรวจพบการพิมพ์ตัวอักษรซ้ำผิดปกติ กรุณาป้อนข้อความภาษาอังกฤษที่มีความหมาย (Repeated character sequence detected)",
+        )
+
+    # 4. ตรวจสอบคำศัพท์ที่รู้จัก (Adaptive Lexicon & Word Frequency)
+    lex = nc.get_lexicon()
+    recognized = sum(
+        1
+        for w in words
+        if w.lower_ in lex
+        or w.lemma_.lower() in lex
+        or zipf_frequency(w.lower_, "en") > 1.2
+    )
+    if len(words) < 10:
+        if recognized < 1 or (recognized / len(words)) < 0.30:
+            raise HTTPException(
+                status_code=400,
+                detail="ไม่พบคำศัพท์ภาษาอังกฤษที่รู้จักในข้อความ กรุณาป้อนประโยคภาษาอังกฤษที่มีความหมาย (No recognized English words found)",
+            )
+    else:
+        if (recognized / len(words)) < 0.18:
+            raise HTTPException(
+                status_code=400,
+                detail="ไม่พบคำศัพท์ภาษาอังกฤษที่รู้จักเพียงพอ กรุณาตรวจสอบข้อความที่ป้อน (Text does not appear to contain recognized English words)",
+            )
+
+    # 7. ตรวจสอบภาษาอื่นที่ใช้อักษรละติน (ตรวจเฉพาะเมื่อภาษาอังกฤษไม่ใช่ภาษาหลักเด่นชัด)
+    if len(words) >= 8:
+        try:
+            langs = langdetect.detect_langs(text)
+            en_prob = next((l.prob for l in langs if l.lang == "en"), 0.0)
+            top_lang = langs[0] if langs else None
+            # ปฏิเสธเฉพาะเมื่อภาษาอื่นครองสัดส่วนเด่นชัด (> 75%) และภาษาอังกฤษเหลือน้อยมาก (< 25%)
+            if (
+                top_lang
+                and top_lang.lang != "en"
+                and top_lang.prob >= 0.75
+                and en_prob < 0.25
+            ):
+                lang_names = {
+                    "fr": "ภาษาฝรั่งเศส",
+                    "es": "ภาษาสเปน",
+                    "de": "ภาษาเยอรมัน",
+                    "it": "ภาษาอิตาลี",
+                    "pt": "ภาษาโปรตุเกส",
+                    "nl": "ภาษาดัตช์",
+                    "ru": "ภาษารัสเซีย",
+                }
+                name = lang_names.get(top_lang.lang, f"ภาษา {top_lang.lang}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"ตรวจพบ{name}เป็นภาษาหลัก ({int(top_lang.prob * 100)}%): ระบบรองรับเฉพาะบทความภาษาอังกฤษเท่านั้น (English text only)",
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
+    return doc, words
+
+
 # -----------------------------------------------------------------------------
 # Request & Response Schemas
 # -----------------------------------------------------------------------------
 class AnalyzeRequest(BaseModel):
     text: str
-    model: Optional[str] = "auto"  # 'auto', 'rf', 'bilstm', 'bytelstm', 'hybrid'
+    model: Optional[str] = "auto"  # 'auto', 'rf', 'bilstm', 'bytelstm', 'hybrid', 'bytehybrid'
+    doc_model: Optional[str] = None
+    sentence_model: Optional[str] = None
+    word_model: Optional[str] = None
 
 
 class CompareRequest(BaseModel):
@@ -88,11 +220,7 @@ def health():
 
 @app.post("/api/analyze")
 def analyze(req: AnalyzeRequest):
-    text = req.text.strip()
-    if not text:
-        raise HTTPException(status_code=400, detail="Text cannot be empty")
-
-    doc = nc.parse(text)
+    doc, words = validate_english_input(req.text, min_words=3)
     du = nc.doc_unit(doc)
     units = du["units"]
     doc_feats = du["doc_feats"]
@@ -102,21 +230,54 @@ def analyze(req: AnalyzeRequest):
 
     pred = get_predictor()
 
-    # เลือกโมเดล
+    # เลือกโมเดลแยกแต่ละระดับ (Article, Sentence, Word)
+    # Default pipeline ตามที่กำหนด:
+    # 1. ระดับบทความ (Document level): Random Forest (+Features) -> 'rf'
+    # 2. ระดับประโยค (Sentence level): Byte-LSTM + Features -> 'bytehybrid'
+    # 3. ระดับคำศัพท์ (Word level): Byte-LSTM + Features -> 'bytehybrid'
     requested_model = (req.model or "auto").lower()
-    if requested_model == "auto":
-        selected_model = pred.best["document"] if pred else "rf"
-    elif requested_model in mm.MODEL_NAMES:
-        selected_model = requested_model
+
+    if req.doc_model:
+        doc_model = req.doc_model.lower()
+    elif requested_model != "auto" and requested_model in mm.MODEL_NAMES:
+        doc_model = requested_model
     else:
+        doc_model = "rf"
+
+    if req.sentence_model:
+        sentence_model = req.sentence_model.lower()
+    elif requested_model != "auto" and requested_model in mm.MODEL_NAMES:
+        sentence_model = requested_model
+    else:
+        sentence_model = "bytehybrid"
+
+    if req.word_model:
+        word_model = req.word_model.lower()
+    elif requested_model in ["rf", "rf_tfidf"]:
+        word_model = "rf"
+    elif requested_model in ["bytelstm"]:
+        word_model = "bytelstm"
+    else:
+        word_model = "bytehybrid"
+
+    if pred:
+        avail = pred.available_models()
+        if doc_model not in avail:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Document model '{doc_model}' is not available. Available: {', '.join(avail)}",
+            )
+        if sentence_model not in avail:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Sentence model '{sentence_model}' is not available. Available: {', '.join(avail)}",
+            )
+
+    valid_words = ["bytehybrid", "hybrid", "rf", "bytelstm"]
+    if word_model not in valid_words:
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown model '{req.model}'. Choose from: auto, {', '.join(mm.MODEL_NAMES)}",
-        )
-    if pred and selected_model not in pred.available_models():
-        raise HTTPException(
-            status_code=400,
-            detail=f"Model '{selected_model}' is not trained yet. Run 'py -3.11 backend/ml_models.py' first.",
+            detail=f"Word model '{word_model}' is not valid. Choose from: {', '.join(valid_words)}",
         )
 
     # คำนวณระดับบทความ / ประโยค
@@ -124,7 +285,7 @@ def analyze(req: AnalyzeRequest):
     sent_levels_num = []
 
     if pred:
-        probs = pred.sentence_proba(selected_model, units)
+        probs = pred.sentence_proba(sentence_model, units)
         for i, (u, p) in enumerate(zip(units, probs)):
             score = nc.expected_score(p)
             lbl = nc.score_label(score)
@@ -144,14 +305,16 @@ def analyze(req: AnalyzeRequest):
                     "n_clauses": u["clauses"]["n_clauses"],
                     "depth": u["clauses"]["depth"],
                     "breakdown": s_bk,
+                    "model_used": sentence_model,
                 }
             )
 
-        # General Level ของบทความ
-        gen_p = pred.general_proba(selected_model, units, doc_feats)
+        # General Level ของบทความ (คำนวณด้วย doc_model)
+        gen_p = pred.general_proba(doc_model, units, doc_feats)
         gen_score = nc.expected_score(gen_p)
         general_level = nc.score_label(gen_score)
         general_level["probabilities"] = [float(x) for x in gen_p]
+        general_level["model_used"] = doc_model
 
         # Breakdown (Vocabulary, Verb form, Clause)
         breakdown = pred.breakdown(units, doc_feats)
@@ -184,6 +347,7 @@ def analyze(req: AnalyzeRequest):
                     "n_clauses": u["clauses"]["n_clauses"],
                     "depth": u["clauses"]["depth"],
                     "breakdown": breakdown,
+                    "model_used": sentence_model,
                 }
             )
 
@@ -192,12 +356,17 @@ def analyze(req: AnalyzeRequest):
     levels_by_tok = {}
     for s_idx, s in enumerate(doc.sents):
         toks = [t for t in s if not t.is_space]
-        t_lvls = nc.token_levels(toks)
+        t_lvls = nc.token_levels(toks, word_model=word_model)
         for t, (lvl, src) in zip(toks, t_lvls):
             sent_ids[t.i] = s_idx
             levels_by_tok[t.i] = (lvl, src)
 
-    serialized_tokens = nc.serialize_tokens(doc, sent_ids, levels_by_tok)
+    word_model_display = (
+        "Byte-LSTM + Features"
+        if word_model in ["bytehybrid", "hybrid"]
+        else ("Random Forest (+Features)" if word_model == "rf" else "Byte-LSTM (Bytes Only)")
+    )
+    serialized_tokens = nc.serialize_tokens(doc, sent_ids, levels_by_tok, word_model_name=word_model_display)
 
     # รวม verb_forms และ entities ทั่วทั้งบทความ
     all_verb_forms = [vf for u in units for vf in u["verb_forms"]]
@@ -218,9 +387,26 @@ def analyze(req: AnalyzeRequest):
         "tokens": serialized_tokens,
         "verb_forms": all_verb_forms,
         "entities": all_entities,
-        "model_used": selected_model,
-        "model_name": mm.MODEL_NAMES.get(selected_model, selected_model),
+        "model_used": doc_model,
+        "model_name": mm.MODEL_NAMES.get(doc_model, doc_model),
         "requested_model": requested_model,
+        "models_used": {
+            "document": {
+                "id": doc_model,
+                "name": mm.MODEL_NAMES.get(doc_model, doc_model),
+                "label": "Random Forest (+Features)" if doc_model == "rf" else mm.MODEL_NAMES.get(doc_model, doc_model),
+            },
+            "sentence": {
+                "id": sentence_model,
+                "name": mm.MODEL_NAMES.get(sentence_model, sentence_model),
+                "label": "Byte-LSTM + Features" if sentence_model == "bytehybrid" else mm.MODEL_NAMES.get(sentence_model, sentence_model),
+            },
+            "word": {
+                "id": word_model,
+                "name": word_model_display,
+                "label": word_model_display,
+            },
+        },
         "stats": {
             "word_count": len([t for t in doc if t.is_alpha]),
             "sentence_count": len(units),
@@ -232,17 +418,13 @@ def analyze(req: AnalyzeRequest):
 
 @app.post("/api/compare")
 def compare_models(req: CompareRequest):
-    text = req.text.strip()
-    if not text:
-        raise HTTPException(status_code=400, detail="Text cannot be empty")
-
     pred = get_predictor()
     if not pred:
         raise HTTPException(
             status_code=503, detail="Models are not trained yet. Run ml_models.py first."
         )
 
-    doc = nc.parse(text)
+    doc, words = validate_english_input(req.text, min_words=1)
     du = nc.doc_unit(doc)
     units = du["units"]
     doc_feats = du["doc_feats"]
@@ -418,8 +600,12 @@ def get_dataset_analytics():
 
 @app.post("/api/quiz/generate")
 def generate_quiz(req: QuizGenerateRequest):
-    if not req.text.strip():
-        raise HTTPException(status_code=400, detail="Text cannot be empty")
+    doc, words = validate_english_input(req.text, min_words=3)
+    if len(words) < 35:
+        raise HTTPException(
+            status_code=400,
+            detail=f"บทความสั้นเกินไปสำหรับการสร้างชุดควิซ (พบ {len(words)} คำ) ต้องการบทความอย่างน้อย 35 คำขึ้นไป (ประมาณ 3 ประโยค) เพื่อให้มีเนื้อหาคำศัพท์และไวยากรณ์เพียงพอสำหรับออกข้อสอบอย่างน้อย 4 ข้อ",
+        )
     return quiz.generate_quiz(
         req.text,
         num_questions=req.num_questions or 10,

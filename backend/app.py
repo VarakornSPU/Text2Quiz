@@ -453,7 +453,7 @@ def compare_models(req: CompareRequest):
             ],
         }
 
-    return {"text": text, "comparison": comparison}
+    return {"text": req.text, "comparison": comparison}
 
 
 def _feature_group_map(scope):

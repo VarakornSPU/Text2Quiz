@@ -1065,30 +1065,62 @@ body {
 }
 
 /* Live model comparison */
+.live-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .live-compare-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .live-compare-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .live-model-box {
-  background: #F8FAFC;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 12px;
+  background: #FFFFFF;
+  border: 1.5px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.live-model-box:hover {
+  border-color: #94A3B8;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.07);
 }
 
 .live-model-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 10px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #F1F5F9;
 }
 
 .prob-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 5px;
 }
 
 .prob-track {
   flex: 1;
   height: 6px;
-  background: #E2E8F0;
+  background: #F1F5F9;
   border-radius: 9999px;
   overflow: hidden;
 }
@@ -1096,6 +1128,7 @@ body {
 .prob-fill {
   height: 100%;
   border-radius: 9999px;
+  transition: width 0.3s ease;
 }
 
 /* Visualization Tab Styles */

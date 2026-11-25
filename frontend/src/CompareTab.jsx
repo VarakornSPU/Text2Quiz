@@ -275,6 +275,7 @@ export default function CompareTab() {
   const [liveText, setLiveText] = useState('Experts have been examining the fake news phenomenon.');
   const [liveResult, setLiveResult] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
+  const [liveError, setLiveError] = useState(null);
   const [selectedConfModel, setSelectedConfModel] = useState('rf');
 
   // Feature ranking filters
@@ -308,6 +309,7 @@ export default function CompareTab() {
   const handleLiveTest = async () => {
     if (!liveText.trim()) return;
     setLiveLoading(true);
+    setLiveError(null);
     try {
       const res = await fetch('/api/compare', {
         method: 'POST',
@@ -315,9 +317,12 @@ export default function CompareTab() {
         body: JSON.stringify({ text: liveText }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || 'การเปรียบเทียบโมเดลขัดข้อง');
+      }
       setLiveResult(data);
     } catch (err) {
-      alert('Error during live comparison: ' + err.message);
+      setLiveError(err.message || 'Error during live comparison');
     } finally {
       setLiveLoading(false);
     }
@@ -974,7 +979,7 @@ export default function CompareTab() {
         icon={<Sparkles size={18} className="text-primary" />}
       >
         <p className="text-sm text-muted mb-3">
-          ทดสอบใส่ประโยคหรือย่อหน้าใดๆ เพื่อดูการประเมิน CEFR แบบสดๆ พร้อม Probability Distribution ของทั้ง 4 โมเดล
+          ทดสอบใส่ประโยคหรือย่อหน้าใดๆ เพื่อดูการประเมิน CEFR แบบสดๆ พร้อม Probability Distribution ของทั้ง 6 โมเดล
         </p>
         <div className="flex gap-2 mb-2">
           <input
@@ -1002,30 +1007,39 @@ export default function CompareTab() {
           </div>
         )}
 
+        {liveError && (
+          <div className="input-validation-warning mb-4" style={{ backgroundColor: '#FEF2F2', borderColor: '#FCA5A5', color: '#991B1B' }}>
+            <AlertTriangle size={15} />
+            <span>{liveError}</span>
+          </div>
+        )}
+
         {liveResult && (
-          <div className="grid grid-cols-4 gap-4">
+          <div className="live-compare-grid">
             {Object.keys(liveResult.comparison || {}).map((m) => {
               const res = liveResult.comparison?.[m];
               if (!res) return null;
               return (
                 <div key={m} className="live-model-box">
                   <div className="live-model-header">
-                    <div>
-                      <span className="font-bold text-sm">{modelNames[m] || m.toUpperCase()}</span>
-                      <div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm text-slate-800 truncate" title={modelNames[m] || m.toUpperCase()}>
+                        {modelNames[m] || m.toUpperCase()}
+                      </div>
+                      <div className="mt-1">
                         <span className={`feat-mode-pill ${usesFeaturesMap[m] ? 'with-feat' : 'no-feat'}`}>
                           {usesFeaturesMap[m] ? '+Features' : 'No Features'}
                         </span>
                       </div>
                     </div>
-                    <LevelBadge level={res.document?.level} label={res.document?.label} />
+                    <LevelBadge level={res.document?.level} label={res.document?.label} size="md" />
                   </div>
-                  <div className="prob-bars mt-2">
+                  <div className="prob-bars">
                     {['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].map((lvl, idx) => {
                       const prob = res.probabilities?.[idx] || 0;
                       return (
                         <div key={lvl} className="prob-row">
-                          <span className="text-xs text-muted">{lvl}</span>
+                          <span className="text-xs text-muted w-4 font-semibold">{lvl}</span>
                           <div className="prob-track">
                             <div
                               className="prob-fill"
@@ -1035,7 +1049,9 @@ export default function CompareTab() {
                               }}
                             />
                           </div>
-                          <span className="text-xs font-mono">{(prob * 100).toFixed(0)}%</span>
+                          <span className="text-xs font-mono w-8 text-right font-medium text-slate-700">
+                            {(prob * 100).toFixed(0)}%
+                          </span>
                         </div>
                       );
                     })}

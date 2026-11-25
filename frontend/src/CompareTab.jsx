@@ -351,16 +351,29 @@ export default function CompareTab() {
     bytehybrid: true,
   };
 
+  // Selected model for Feature Importance based on level:
+  // - Document Level: Random Forest (+Features) -> 'rf'
+  // - Sentence Level: Byte-LSTM + Features -> 'bytehybrid'
+  // - Word Level: Byte-LSTM + Features -> 'hybrid' (word bytehybrid)
+  const featModelKey =
+    scope === 'document' ? 'rf' : scope === 'sentence' ? 'bytehybrid' : 'hybrid';
+  const featModelData = scopeData[featModelKey] || scopeData.rf || {};
+
   // Full ranked features (fallback to top 25 if backend not enriched)
   const allRankedFeatures = useMemo(() => {
-    const raw = scopeData.rf?.feature_importance_all || scopeData.rf?.feature_importance || [];
+    const raw =
+      featModelData.feature_importance_all ||
+      featModelData.feature_importance ||
+      scopeData.rf?.feature_importance_all ||
+      scopeData.rf?.feature_importance ||
+      [];
     return raw.map((item, idx) => ({
       rank: item.rank || idx + 1,
       name: item.name,
       importance: item.importance,
       group: item.group || 'other',
     }));
-  }, [scopeData]);
+  }, [featModelData, scopeData]);
 
   const availableGroups = useMemo(() => {
     const gs = new Set(allRankedFeatures.map((f) => f.group));
@@ -384,12 +397,12 @@ export default function CompareTab() {
 
   // Group importance list sorted descending
   const groupImportanceList = useMemo(() => {
-    const gi = scopeData.rf?.group_importance;
+    const gi = featModelData.group_importance || scopeData.rf?.group_importance;
     if (!gi) return [];
     return Object.entries(gi)
       .map(([group, weight]) => ({ group, weight }))
       .sort((a, b) => b.weight - a.weight);
-  }, [scopeData]);
+  }, [featModelData, scopeData]);
 
   if (loading) {
     return (
@@ -768,10 +781,17 @@ export default function CompareTab() {
           icon={<ListOrdered size={18} className="text-warning" />}
           badge={
             <span className="badge-tag">
-              Gini Feature Importance (Random Forest)
+              {scope === 'document'
+                ? 'Gini Feature Importance (Random Forest +Features)'
+                : 'Learned Feature Weights (Byte-LSTM + Features)'}
             </span>
           }
         >
+          <p className="text-xs text-muted mb-3">
+            {scope === 'document'
+              ? 'แสดงค่าน้ำหนักความสำคัญของฟีเจอร์จากโมเดล Random Forest (+Features) ที่ใช้เป็นโมเดลหลักระดับบทความ'
+              : `แสดงค่าน้ำหนักความสำคัญของฟีเจอร์จากโมเดล Byte-LSTM + Features ที่ใช้เป็นโมเดลหลักระดับ${scope === 'sentence' ? 'ประโยค' : 'คำศัพท์'}`}
+          </p>
           {/* Category Weight Summary */}
           {groupImportanceList.length > 0 && (
             <div className="group-importance-section mb-4">

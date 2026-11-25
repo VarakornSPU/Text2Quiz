@@ -547,6 +547,24 @@ def _enrich_metrics(data):
                 data["sentence"]["rf"]["feature_importance_all"] = ranked_s
                 data["sentence"]["rf"]["group_importance"] = _group_totals(ranked_s)
 
+        # Sentence Byte-LSTM + Features (bytehybrid)
+        bytehybrid_path = os.path.join(nc.ART_DIR, "bytehybrid.pt")
+        if os.path.exists(bytehybrid_path) and "bytehybrid" in data.get("sentence", {}):
+            try:
+                import torch
+                sd_s = torch.load(bytehybrid_path, map_location="cpu")
+                if "feat.0.weight" in sd_s.get("state", {}):
+                    w_s = sd_s["state"]["feat.0.weight"]  # [64, 65]
+                    imp_s = torch.norm(w_s, dim=0).detach().numpy()
+                    s_sum = imp_s.sum()
+                    if s_sum > 0:
+                        imp_s = imp_s / s_sum
+                    ranked_s_byte = _rank_features(nc.SENT_FEATURE_NAMES, imp_s, "sentence")
+                    data["sentence"]["bytehybrid"]["feature_importance_all"] = ranked_s_byte
+                    data["sentence"]["bytehybrid"]["group_importance"] = _group_totals(ranked_s_byte)
+            except Exception as e_s:
+                print(f"Warning: Could not enrich sentence bytehybrid features ({e_s})")
+
         if pred and "rf" in data.get("document", {}):
             doc_rf = pred.rf.get("doc")
             doc_names = nc.DOC_FEATURE_NAMES + [f"sent_prob_{l}" for l in nc.LEVELS] + [f"sent_hist_{l}" for l in nc.LEVELS]
@@ -555,11 +573,33 @@ def _enrich_metrics(data):
                 data["document"]["rf"]["feature_importance_all"] = ranked_d
                 data["document"]["rf"]["group_importance"] = _group_totals(ranked_d)
 
-        word_rf = nc._load_word_model()
-        if word_rf is not None and "rf" in data.get("word", {}) and len(word_rf.feature_importances_) == len(nc.WORD_FEATURE_NAMES):
+        # Word RF model
+        word_rf_res = nc._load_word_model("rf")
+        word_rf = word_rf_res[1] if isinstance(word_rf_res, tuple) else word_rf_res
+        if word_rf is not None and "rf" in data.get("word", {}) and hasattr(word_rf, "feature_importances_") and len(word_rf.feature_importances_) == len(nc.WORD_FEATURE_NAMES):
             ranked_w = _rank_features(nc.WORD_FEATURE_NAMES, word_rf.feature_importances_, "word")
             data["word"]["rf"]["feature_importance_all"] = ranked_w
             data["word"]["rf"]["group_importance"] = _group_totals(ranked_w)
+
+        # Word Byte-LSTM + Features (word_hybrid)
+        word_hybrid_path = os.path.join(nc.ART_DIR, "word_hybrid.pt")
+        if os.path.exists(word_hybrid_path):
+            try:
+                import torch
+                sd_w = torch.load(word_hybrid_path, map_location="cpu")
+                if "feat.0.weight" in sd_w.get("state", {}):
+                    w_w = sd_w["state"]["feat.0.weight"]  # [64, 41]
+                    imp_w = torch.norm(w_w, dim=0).detach().numpy()
+                    s_w = imp_w.sum()
+                    if s_w > 0:
+                        imp_w = imp_w / s_w
+                    ranked_w_byte = _rank_features(nc.WORD_FEATURE_NAMES, imp_w, "word")
+                    for m_key in ("hybrid", "bytehybrid"):
+                        if m_key in data.get("word", {}):
+                            data["word"][m_key]["feature_importance_all"] = ranked_w_byte
+                            data["word"][m_key]["group_importance"] = _group_totals(ranked_w_byte)
+            except Exception as e_w:
+                print(f"Warning: Could not enrich word hybrid features ({e_w})")
     except Exception as exc:
         print(f"Warning: Could not enrich full feature importances ({exc})")
 
